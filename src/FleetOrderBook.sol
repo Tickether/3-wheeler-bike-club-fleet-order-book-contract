@@ -2,6 +2,7 @@
 pragma solidity ^0.8.13;
 
 
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ERC6909 } from "solmate/tokens/ERC6909.sol";
 import { IERC6909TokenSupply } from "./interfaces/IERC6909TokenSupply.sol";
 import { IERC6909ContentURI } from "./interfaces/IERC6909ContentURI.sol";
@@ -12,7 +13,9 @@ import { IERC6909ContentURI } from "./interfaces/IERC6909ContentURI.sol";
 /// @author Geeloko
 
 
-contract FleetOrderBook is ERC6909, IERC6909TokenSupply, IERC6909ContentURI{
+contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909ContentURI {
+    constructor() Ownable(_msgSender()) { }
+    
     /// @notice Total supply of a ids reprsenting fleet orders.
     uint256 public totalFleet;
     /// @notice Last fleet fraction ID.
