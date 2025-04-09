@@ -11,5 +11,5 @@ interface IERC6909TokenSupply {
     /// @notice Total supply of a token
     /// @param id The id of the token.
     /// @return supply The total supply of the token.
-    function totalSupply(uint256 id) external view returns (uint256 supply);
+    function totalFractions(uint256 id) external view returns (uint256 supply);
 }
