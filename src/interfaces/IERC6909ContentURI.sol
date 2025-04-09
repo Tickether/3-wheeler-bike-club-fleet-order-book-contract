@@ -2,11 +2,8 @@
 pragma solidity ^0.8.19;
 
 
-import "./IERC6909.sol";
-
-
 /// @title ERC6909 Content URI Interface
-/// @author jtriley.eth
+/// @author jtriley.eth x Geeloko
 
 
 interface IERC6909ContentURI  {
