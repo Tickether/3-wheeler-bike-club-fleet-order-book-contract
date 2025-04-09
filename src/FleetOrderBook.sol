@@ -14,6 +14,7 @@ import { IERC6909ContentURI } from "./interfaces/IERC6909ContentURI.sol";
 
 
 contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909ContentURI {
+    
     constructor() Ownable(_msgSender()) { }
     
     /// @notice Total supply of a ids reprsenting fleet orders.
@@ -24,9 +25,9 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
     uint256 public maxFleetOrder;
     
     /// @notice  price per fleet fraction.
-    uint256 public fleetFractionPrice = 46;
+    uint256 public FLEET_FRACTION_PRICE = 46;
     /// @notice Maximum number of fractions per fleet order.
-    uint256 public immutable maxFleetFraction = 50;
+    uint256 public immutable MAX_FLEET_FRACTION = 50;
     
     
     
@@ -36,37 +37,56 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
     /// @notice The contract level URI.
     string public contractURI;
     
+    /// @notice Set the contract level URI.
+    /// @param _contractURI The URI to set.
+    function setContractURI(string memory _contractURI) external onlyOwner {
+        contractURI = _contractURI;
+    }   
+
+    /// @notice Set the fleet fraction price.
+    /// @param _fleetFractionPrice The price to set.
+    function setFleetFractionPrice(uint256 _fleetFractionPrice) external onlyOwner {
+        FLEET_FRACTION_PRICE = _fleetFractionPrice;
+    }
+
+    /// @notice Set the maximum number of fleet orders.
+    /// @param _maxFleetOrder The maximum number of fleet orders to set.    
+    function setMaxFleetOrder(uint256 _maxFleetOrder) external onlyOwner {
+        maxFleetOrder = _maxFleetOrder;
+    }
 
     /// @notice Order a fleet onchain.
     /// @param fractions The number of fractions to order.
     function orderFleetOnchain ( uint256 fractions ) external virtual {
 
-        require (fractions > 0);         
-        require (totalFleet <= maxFleetOrder);
-        require (fractions <= maxFleetFraction);
+        require (fractions > 0, "fractions must be greater than 0");         
+        require (totalFleet <= maxFleetOrder, "totalFleet cannot exceed maxFleetOrder");
+        require (fractions <= MAX_FLEET_FRACTION, "fractions cannot exceed maxFleetFraction");
 
         // if minting all fractions
-        if (fractions == maxFleetFraction) {
+        if (fractions == MAX_FLEET_FRACTION) {
             totalFleet++;
-            _mint(msg.sender, totalFleet + 1, 1);
+            _mint(msg.sender, totalFleet, 1);
         }
 
         // if minting some fractions
-        if (fractions < maxFleetFraction) {
+        if (fractions < MAX_FLEET_FRACTION) {
             // if first mint ie no last fleetFraction ID we create one
             if (lastFleetFractionID < 1) {
                 totalFleet++;
-                totalFractions[totalFleet + 1] = totalFractions[totalFleet + 1] + fractions;
+                lastFleetFractionID = totalFleet + 1;
+                totalFractions[lastFleetFractionID] = totalFractions[lastFleetFractionID] + fractions;
                 _mint(msg.sender, lastFleetFractionID, fractions);
             
             // if not first mint
             } else {
                 // check fraction left of last token id
-                uint256 fractionsLeft = maxFleetFraction - totalFractions[lastFleetFractionID];
+                uint256 fractionsLeft = MAX_FLEET_FRACTION - totalFractions[lastFleetFractionID];
 
                 // if fractions Left is zero ie last fraction quota completely filled
                 if (fractionsLeft < 1) {
                     totalFleet++;
+                    lastFleetFractionID = totalFleet + 1;
                     totalFractions[lastFleetFractionID] = totalFractions[lastFleetFractionID] + fractions;
                     _mint(msg.sender, lastFleetFractionID, fractions);
                 } else {
@@ -83,7 +103,8 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
                         
                         //...mint overflow
                         totalFleet++;
-                        totalFractions[totalFleet + 1] = totalFractions[totalFleet + 1] + overflowFractions;
+                        lastFleetFractionID = totalFleet + 1;
+                        totalFractions[lastFleetFractionID] = totalFractions[lastFleetFractionID] + overflowFractions;
                         _mint(msg.sender, lastFleetFractionID, overflowFractions);
                     }
                 }
@@ -92,12 +113,6 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
 
     }
     
-
-/*
-    function orderFleetOffchain ( uint256 fractions ) external {
-        
-    }
-*/
 
 
     /// @notice The URI for each id.
