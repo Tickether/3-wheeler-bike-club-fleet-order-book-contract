@@ -4,6 +4,8 @@ pragma solidity ^0.8.13;
 
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 //import { Ownable } from "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/Ownable.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+//import { Strings } from "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/Strings.sol";
 import { ERC6909 } from "solmate/tokens/ERC6909.sol";
 //import { ERC6909 } from  "https://github.com/transmissions11/solmate/blob/main/src/tokens/ERC6909.sol";
 import { IERC6909TokenSupply } from "./interfaces/IERC6909TokenSupply.sol";
@@ -16,6 +18,7 @@ import { IERC6909ContentURI } from "./interfaces/IERC6909ContentURI.sol";
 
 
 contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909ContentURI {
+     using Strings for uint256;
     
     constructor() Ownable(_msgSender()) { }
     
@@ -119,7 +122,8 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
 
     /// @notice The URI for each id.
     /// @return The URI of the token.
-    function tokenURI(uint256) public pure override returns (string memory) {
-        return "<baseuri>/{id}";
+    function tokenURI(uint256 id) public view override returns (string memory) {
+        string memory baseURI = contractURI;
+        return bytes(baseURI).length > 0 ? string.concat(baseURI, id.toString()) : "";
     }
 }
