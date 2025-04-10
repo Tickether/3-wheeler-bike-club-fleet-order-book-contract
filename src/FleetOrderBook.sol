@@ -66,6 +66,46 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
     }
 
 
+    /// @notice Add erc20contract to fleetERC20s.
+    /// @param erc20Contract The address of the ERC20 contract.
+    function addERC20(address erc20Contract) 
+        external
+        onlyOwner
+    {
+        require(fleetERC20s.length < 2, 'add limit reached');
+        //req not on list... check for that
+        for (uint i = 0; i < fleetERC20s.length; i++) {
+            require(fleetERC20s[i] != erc20Contract, 'already added');
+        }
+        fleetERC20s.push(erc20Contract);
+    }
+
+    
+    /// @notice remove erc20contract from fleetERC20s.
+    /// @param erc20Contract The address of the ERC20 contract.
+    function removeERC20(address erc20Contract)
+        external
+        onlyOwner
+    {
+        require(fleetERC20s.length > 0, 'nothing to remove');
+        
+        //req on list... check for that
+        for (uint i = 0; i < fleetERC20s.length; i++) {
+            require(fleetERC20s[i] == erc20Contract, 'not added');
+        }
+        for (uint256 i = 0; i < fleetERC20s.length; i++) {
+            if (fleetERC20s[i] == erc20Contract) {
+                // Move the last element to the position of the element to be removed
+                fleetERC20s[i] = fleetERC20s[fleetERC20s.length - 1];
+                // Remove the last element (duplicate) from the array
+                fleetERC20s.pop();
+                // Exit the loop as the address is found and removed
+                break;
+            }
+        }
+    }
+    
+
     /// @notice Pay fee in ERC20.
     /// @param fractions The number of fractions to order.
     /// @param erc20Contract The address of the ERC20 contract.
