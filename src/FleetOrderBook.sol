@@ -3,7 +3,9 @@ pragma solidity ^0.8.13;
 
 
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+//import { Ownable } from "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/Ownable.sol";
 import { ERC6909 } from "solmate/tokens/ERC6909.sol";
+//import { ERC6909 } from  "https://github.com/transmissions11/solmate/blob/main/src/tokens/ERC6909.sol";
 import { IERC6909TokenSupply } from "./interfaces/IERC6909TokenSupply.sol";
 import { IERC6909ContentURI } from "./interfaces/IERC6909ContentURI.sol";
 
@@ -21,9 +23,9 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
     uint256 public totalFleet;
     /// @notice Last fleet fraction ID.
     uint256 public lastFleetFractionID;
+ 
     /// @notice Maximum number of fleet orders.
-    uint256 public maxFleetOrder;
-    
+    uint256 public MAX_FLEET_ORDER = 24;
     /// @notice  price per fleet fraction.
     uint256 public FLEET_FRACTION_PRICE = 46;
     /// @notice Maximum number of fractions per fleet order.
@@ -44,15 +46,15 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
     }   
 
     /// @notice Set the fleet fraction price.
-    /// @param _fleetFractionPrice The price to set.
-    function setFleetFractionPrice(uint256 _fleetFractionPrice) external onlyOwner {
-        FLEET_FRACTION_PRICE = _fleetFractionPrice;
+    /// @param fleetFractionPrice The price to set.
+    function setFleetFractionPrice(uint256 fleetFractionPrice) external onlyOwner {
+        FLEET_FRACTION_PRICE = fleetFractionPrice;
     }
 
     /// @notice Set the maximum number of fleet orders.
-    /// @param _maxFleetOrder The maximum number of fleet orders to set.    
-    function setMaxFleetOrder(uint256 _maxFleetOrder) external onlyOwner {
-        maxFleetOrder = _maxFleetOrder;
+    /// @param maxFleetOrder The maximum number of fleet orders to set.    
+    function setMaxFleetOrder(uint256 maxFleetOrder) external onlyOwner {
+        MAX_FLEET_ORDER = maxFleetOrder;
     }
 
     /// @notice Order a fleet onchain.
@@ -60,7 +62,7 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
     function orderFleetOnchain ( uint256 fractions ) external virtual {
 
         require (fractions > 0, "fractions must be greater than 0");         
-        require (totalFleet <= maxFleetOrder, "totalFleet cannot exceed maxFleetOrder");
+        require (totalFleet <= MAX_FLEET_ORDER, "totalFleet cannot exceed maxFleetOrder");
         require (fractions <= MAX_FLEET_FRACTION, "fractions cannot exceed maxFleetFraction");
 
         // if minting all fractions
@@ -74,7 +76,7 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
             // if first mint ie no last fleetFraction ID we create one
             if (lastFleetFractionID < 1) {
                 totalFleet++;
-                lastFleetFractionID = totalFleet + 1;
+                lastFleetFractionID = totalFleet;
                 totalFractions[lastFleetFractionID] = totalFractions[lastFleetFractionID] + fractions;
                 _mint(msg.sender, lastFleetFractionID, fractions);
             
@@ -86,7 +88,7 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
                 // if fractions Left is zero ie last fraction quota completely filled
                 if (fractionsLeft < 1) {
                     totalFleet++;
-                    lastFleetFractionID = totalFleet + 1;
+                    lastFleetFractionID = totalFleet;
                     totalFractions[lastFleetFractionID] = totalFractions[lastFleetFractionID] + fractions;
                     _mint(msg.sender, lastFleetFractionID, fractions);
                 } else {
@@ -103,7 +105,7 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
                         
                         //...mint overflow
                         totalFleet++;
-                        lastFleetFractionID = totalFleet + 1;
+                        lastFleetFractionID = totalFleet;
                         totalFractions[lastFleetFractionID] = totalFractions[lastFleetFractionID] + overflowFractions;
                         _mint(msg.sender, lastFleetFractionID, overflowFractions);
                     }
