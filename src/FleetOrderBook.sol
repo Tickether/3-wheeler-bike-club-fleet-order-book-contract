@@ -110,7 +110,7 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
         external
         onlyOwner
     {
-        require(fleetERC20s.length < 2, 'add limit reached');
+        require(fleetERC20s.length < 7, 'add limit reached');
         //req not on list... check for that
         for (uint i = 0; i < fleetERC20s.length; i++) {
             require(fleetERC20s[i] != erc20Contract, 'already added');
@@ -265,6 +265,7 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
     
 
     /// @notice The URI for each id.
+    /// @param id The id of the fleet order to get the URI for.
     /// @return The URI of the token.
     function tokenURI(uint256 id) public view override returns (string memory) {
         require(id > 0, "id must be greater than 0");
