@@ -46,7 +46,6 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
     /// @notice track nodes ERC20 list
     address[] public fleetERC20s;
  
- 
     /// @notice Maximum number of fleet orders.
     uint256 public MAX_FLEET_ORDER = 24;
     /// @notice  Price per fleet fraction  in USD.
@@ -55,6 +54,8 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
     uint256 public immutable MIN_FLEET_FRACTION = 1;
     /// @notice Maximum number of fractions per fleet order.
     uint256 public immutable MAX_FLEET_FRACTION = 50;
+     /// @notice Maximum number of fleet orders per address.
+    uint256 public MAX_FLEET_ORDER_PER_ADDRESS = 100;
     /// @notice Number of decimals for the ERC20 token.
     uint256 public constant TOKEN_DECIMALS = 18;
     
@@ -189,6 +190,7 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
     /// @param erc20Contract The address of the ERC20 contract.
     function orderFleet ( uint256 fractions, address erc20Contract ) external virtual {
         
+        require(fleetOwned[msg.sender].length <= MAX_FLEET_ORDER_PER_ADDRESS, "you have reached the maximum number of fleet orders");
         require(isTokenValid(erc20Contract), "ERC20 contract entered is not accepted for fleet orders");
         require(active, "Contract is not active");
         require(erc20Contract != address(0), "Invalid token address");
@@ -340,6 +342,32 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
 
 
     /// @notice Transfer a fleet order.
+    /// @param receiver The address of the receiver.
+    /// @param id The id of the fleet order to transfer.
+    /// @param amount The amount of fleet order to transfer.
+    /// @return bool True if the transfer was successful, false otherwise.
+    function transfer(
+        address receiver,
+        uint256 id,
+        uint256 amount
+    ) public override returns (bool) {
+        require(id > 0, "id must be greater than 0");
+        require(id <= totalFleet, "id does not exist in fleet");
+        require(fleetOwned[receiver].length <= MAX_FLEET_ORDER_PER_ADDRESS, "you have reached the maximum number of fleet orders");
+        
+        balanceOf[msg.sender][id] -= amount;
+        removeFleetOrder(id, msg.sender);
+
+        balanceOf[receiver][id] += amount;
+        fleetOwned[receiver].push(id);
+
+        emit Transfer(msg.sender, msg.sender, receiver, id, amount);
+
+        return true;
+    }
+
+
+    /// @notice Transfer a fleet order.
     /// @param sender The address of the sender.
     /// @param receiver The address of the receiver.
     /// @param id The id of the fleet order to transfer.
@@ -353,6 +381,7 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
     ) public override returns (bool) {
         require(id > 0, "id must be greater than 0");
         require(id <= totalFleet, "id does not exist in fleet");
+        require(fleetOwned[receiver].length <= MAX_FLEET_ORDER_PER_ADDRESS, "you have reached the maximum number of fleet orders");
 
         if (msg.sender != sender && !isOperator[sender][msg.sender]) {
             uint256 allowed = allowance[sender][msg.sender][id];
