@@ -1,17 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-//import { Ownable } from "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/Ownable.sol";
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
-//import { Strings } from "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/Strings.sol";
-import { ERC6909 } from "solmate/tokens/ERC6909.sol";
-//import { ERC6909 } from  "https://github.com/transmissions11/solmate/blob/main/src/tokens/ERC6909.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-//import { IERC20 } from "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/IERC20.sol";
 import { IERC6909TokenSupply } from "./interfaces/IERC6909TokenSupply.sol";
 import { IERC6909ContentURI } from "./interfaces/IERC6909ContentURI.sol";
+
+import { ERC6909 } from "solmate/tokens/ERC6909.sol";
+//import { ERC6909 } from  "https://github.com/transmissions11/solmate/blob/main/src/tokens/ERC6909.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+//import { Ownable } from "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/Ownable.sol";
+import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
+//import { Pausable } from "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/Pausable.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+//import { ReentrancyGuard } from "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/ReentrancyGuard.sol";
+
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+//import { Strings } from "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/Strings.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+//import { IERC20 } from "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+//import { SafeERC20 } from "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/IERC20.sol";
+
 
 
 /// @title 3wb.club fleet order book V1.0
@@ -19,8 +27,10 @@ import { IERC6909ContentURI } from "./interfaces/IERC6909ContentURI.sol";
 /// @author Geeloko
 
 
-contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909ContentURI {
+contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Ownable, Pausable, ReentrancyGuard {
+    using SafeERC20 for IERC20;
     using Strings for uint256;
+    
 
     /// @notice Event emitted when a fleet order is placed.
     event FleetOrdered(uint256 indexed fleetId, address indexed buyer);
@@ -34,8 +44,6 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
     event FleetFractionPriceChanged(uint256 oldPrice, uint256 newPrice);
     /// @notice Event emitted when the maximum fleet orders is changed.
     event MaxFleetOrderChanged(uint256 oldMax, uint256 newMax);
-    /// @notice Event emitted when the contract active status is changed.
-    event ContractActiveStatusChanged(bool newStatus);
     
     constructor() Ownable(_msgSender()) { }
     
@@ -43,8 +51,8 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
     uint256 public totalFleet;
     /// @notice Last fleet fraction ID.
     uint256 public lastFleetFractionID;
-    /// @notice track nodes ERC20 list
-    address[] public fleetERC20s;
+
+    
  
     /// @notice Maximum number of fleet orders.
     uint256 public MAX_FLEET_ORDER = 24;
@@ -59,25 +67,19 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
     /// @notice Number of decimals for the ERC20 token.
     uint256 public constant TOKEN_DECIMALS = 18;
     
+    /// @notice check if ERC20 is accepted for fleet orders
+    mapping(address => bool) public fleetERC20;
     /// @notice owner => list of fleet order IDs
     mapping(address => uint256[]) private fleetOwned;
     /// @notice Total fractions of a token representing a 3-wheeler.
     mapping(uint256 id => uint256) public totalFractions;
     /// @notice Representing IRL fullfilled 3-wheeler fleet order.
     mapping(uint256 id => bool) public isFleetOrderFulfilled;
+    /// @notice tracking fleet order index for each owner
+    mapping(address => mapping(uint256 => uint256)) private fleetOwnedIndex;
     
     /// @notice The contract level URI.
     string public contractURI;
-
-    /// @notice The contract level active status.
-    bool public active;
-
-
-    /// @notice activate & deactivate the contract.
-    function setActive() external onlyOwner {
-        active = !active;
-        emit ContractActiveStatusChanged(active);
-    }
     
 
     /// @notice Set the contract level URI.
@@ -100,7 +102,7 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
     /// @notice Set the maximum number of fleet orders.
     /// @param maxFleetOrder The maximum number of fleet orders to set.    
     function setMaxFleetOrder(uint256 maxFleetOrder) external onlyOwner {
-        require(maxFleetOrder > MAX_FLEET_ORDER, "maxFleetOrder must be greater than 0");
+        require(maxFleetOrder > MAX_FLEET_ORDER, "maxFleetOrder must be greater than the current maximum");
         uint256 oldMax = MAX_FLEET_ORDER;
         MAX_FLEET_ORDER = maxFleetOrder;
         emit MaxFleetOrderChanged(oldMax, maxFleetOrder);
@@ -113,12 +115,9 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
         external
         onlyOwner
     {
-        require(fleetERC20s.length < 7, 'add limit reached');
-        //req not on list... check for that
-        for (uint i = 0; i < fleetERC20s.length; i++) {
-            require(fleetERC20s[i] != erc20Contract, 'already added');
-        }
-        fleetERC20s.push(erc20Contract);
+        require(!fleetERC20[erc20Contract], "Token already added");
+
+        fleetERC20[erc20Contract] = true;
         emit ERC20Added(erc20Contract);
     }
 
@@ -126,22 +125,10 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
     /// @notice remove erc20contract from fleetERC20s.
     /// @param erc20Contract The address of the ERC20 contract.
     function removeERC20(address erc20Contract) external onlyOwner {
-        require(fleetERC20s.length > 0, 'nothing to remove');
+        require(fleetERC20[erc20Contract], 'token not added');
         
-        // Find and remove in a single loop
-        for (uint256 i = 0; i < fleetERC20s.length; i++) {
-            if (fleetERC20s[i] == erc20Contract) {
-                // Move the last element to the position of the element to be removed
-                fleetERC20s[i] = fleetERC20s[fleetERC20s.length - 1];
-                // Remove the last element
-                fleetERC20s.pop();
-                emit ERC20Removed(erc20Contract);
-                return;
-            }
-        }
-        
-        // If we get here, the token wasn't found
-        revert('token not added');
+        fleetERC20[erc20Contract] = false;
+        emit ERC20Removed(erc20Contract);
     }
     
 
@@ -154,22 +141,17 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
         
         IERC20 tokenContract = IERC20(erc20Contract);
         uint256 price = FLEET_FRACTION_PRICE * fractions;
-        require(tokenContract.balanceOf(msg.sender) >= (price * (1 * (10 ** TOKEN_DECIMALS))), 'not enough tokens');
-        bool transferred = tokenContract.transferFrom( msg.sender, address(this), (price * (1 * (10 ** TOKEN_DECIMALS))) );
-        require(transferred, "failed transfer"); 
+        uint256 amount = price * (10 ** TOKEN_DECIMALS);
+        require(tokenContract.balanceOf(msg.sender) >= amount, 'not enough tokens');
+        tokenContract.safeTransferFrom( msg.sender, address(this), amount );
     }
 
 
     /// @notice Check if a token is in the fleetERC20s list.
-    /// @param token The address of the token to check.
+    /// @param erc20Contract The address of the token to check.
     /// @return bool True if the token is in the list, false otherwise.
-    function isTokenValid(address token) internal view returns (bool) {
-        for (uint i = 0; i < fleetERC20s.length; i++) {
-            if (fleetERC20s[i] == token) {
-                return true;
-            }
-        }
-        return false;
+    function isTokenValid(address erc20Contract) internal view returns (bool) {
+        return fleetERC20[erc20Contract];
     }
 
 
@@ -177,22 +159,60 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
     /// @param id The id of the fleet order to check.
     /// @return bool True if the fleet order is owned by the address, false otherwise.
     function isFleetOwned(uint256 id) internal view returns (bool) {
-        for (uint i = 0; i < fleetOwned[msg.sender].length; i++) {
-            if (fleetOwned[msg.sender][i] == id) {
-                return true;
-            }
-        }
-        return false;
+        // If no orders exist for msg.sender, return false immediately.
+        if (fleetOwned[msg.sender].length == 0) return false;
+        
+        // Retrieve the stored index for the order id.
+        uint256 index = fleetOwnedIndex[msg.sender][id];
+
+        // If the index is out of range, then id is not owned.
+        if (index >= fleetOwned[msg.sender].length) return false;
+        
+        // Check that the order at that index matches the given id.
+        return fleetOwned[msg.sender][index] == id;
     }
+
+
+
+    /// @notice Add a fleet order to the owner.
+    /// @param receiver The address of the receiver.
+    /// @param id The id of the fleet order to add.
+    function addFleetOrder(address receiver, uint256 id) internal {
+        fleetOwned[receiver].push(id);
+        // Record the index for orderId in the owner's fleetOwned array.
+        fleetOwnedIndex[receiver][id] = fleetOwned[receiver].length - 1;
+    }
+
+
+    /// @notice Remove a fleet order.
+    /// @param id The id of the fleet order to remove.
+    /// @param sender The address of the sender.
+    function removeFleetOrder(uint256 id, address sender) internal {
+        // Get the index of the orderId in the owner's fleetOwned array.
+        uint256 indexToRemove = fleetOwnedIndex[sender][id];
+        uint256 lastIndex = fleetOwned[sender].length - 1;
+
+        // If the order being removed is not the last one, swap it with the last element.
+        if (indexToRemove != lastIndex) {
+            uint256 lastOrderId = fleetOwned[sender][lastIndex];
+            fleetOwned[sender][indexToRemove] = lastOrderId;
+            // Update the index mapping for the swapped order.
+            fleetOwnedIndex[sender][lastOrderId] = indexToRemove;
+        }
+        
+        // Remove the last element and delete the mapping entry for the removed order.
+        fleetOwned[sender].pop();
+        delete fleetOwnedIndex[sender][id];
+    }
+
 
     /// @notice Order a fleet onchain.
     /// @param fractions The number of fractions to order.
     /// @param erc20Contract The address of the ERC20 contract.
-    function orderFleet ( uint256 fractions, address erc20Contract ) external virtual {
+    function orderFleet ( uint256 fractions, address erc20Contract ) external nonReentrant whenNotPaused{
         
-        require(fleetOwned[msg.sender].length <= MAX_FLEET_ORDER_PER_ADDRESS, "you have reached the maximum number of fleet orders");
+        require(fleetOwned[msg.sender].length < MAX_FLEET_ORDER_PER_ADDRESS, "you have reached the maximum number of fleet orders");
         require(isTokenValid(erc20Contract), "ERC20 contract entered is not accepted for fleet orders");
-        require(active, "Contract is not active");
         require(erc20Contract != address(0), "Invalid token address");
         require (fractions >= MIN_FLEET_FRACTION, "fractions start at 1, cannot be less");       
         require (fractions <= MAX_FLEET_FRACTION, "fractions cannot exceed maxFleetFraction");  
@@ -206,7 +226,7 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
             // id counter
             totalFleet++;
             // add fleet order ID to fleetOwned
-            fleetOwned[msg.sender].push(totalFleet);
+            addFleetOrder(msg.sender, totalFleet);
             // mint fractions
             _mint(msg.sender, totalFleet, 1);
             emit FleetOrdered(totalFleet, msg.sender);
@@ -224,7 +244,7 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
                 totalFractions[lastFleetFractionID] = totalFractions[lastFleetFractionID] + fractions;
                 // add fleet order ID to fleetOwned
                 if (!isFleetOwned(totalFleet)) {
-                    fleetOwned[msg.sender].push(totalFleet);
+                    addFleetOrder(msg.sender, totalFleet);
                 }
                 // mint fractions
                 _mint(msg.sender, lastFleetFractionID, fractions);
@@ -245,7 +265,7 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
                     totalFractions[lastFleetFractionID] = totalFractions[lastFleetFractionID] + fractions;
                     // add fleet order ID to fleetOwned
                     if (!isFleetOwned(totalFleet)) {
-                        fleetOwned[msg.sender].push(totalFleet);
+                        addFleetOrder(msg.sender, totalFleet);
                     }
                     // mint fractions
                     _mint(msg.sender, lastFleetFractionID, fractions);
@@ -256,7 +276,7 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
                         payFeeERC20(fractions, erc20Contract);
                         // add fleet order ID to fleetOwned
                         if (!isFleetOwned(lastFleetFractionID)) {
-                            fleetOwned[msg.sender].push(lastFleetFractionID);
+                            addFleetOrder(msg.sender, lastFleetFractionID);
                         }
                         // mint fractions
                         totalFractions[lastFleetFractionID] = totalFractions[lastFleetFractionID] + fractions;
@@ -268,7 +288,7 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
 
                         // add fleet order ID to fleetOwned
                         if (!isFleetOwned(lastFleetFractionID)) {
-                            fleetOwned[msg.sender].push(lastFleetFractionID);
+                            addFleetOrder(msg.sender, lastFleetFractionID);
                         }
                         
                         // check overflow value 
@@ -304,9 +324,9 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
     }
 
 
-    /// @notice Fullfill a fleet order.
-    /// @param id The id of the fleet order to fullfill.
-    function fullfillFleetOrder(uint256 id) external onlyOwner {
+    /// @notice Fulfill a fleet order.
+    /// @param id The id of the fleet order to fulfill.
+    function fulfillFleetOrder(uint256 id) external onlyOwner {
         require(id > 0, "id must be greater than 0");
         require(id <= totalFleet, "id does not exist in fleet");
         isFleetOrderFulfilled[id] = true;
@@ -324,23 +344,6 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
     }
 
 
-    /// @notice Remove a fleet order.
-    /// @param id The id of the fleet order to remove.
-    /// @param sender The address of the sender.
-    function removeFleetOrder(uint256 id, address sender) internal {
-        // Find and remove the id from fleetOwned for the specific owner
-        for (uint256 i = 0; i < fleetOwned[sender].length; i++) {
-            if (fleetOwned[sender][i] == id) {
-                // Move the last element to the position of the element to be removed
-                fleetOwned[sender][i] = fleetOwned[sender][fleetOwned[sender].length - 1];
-                // Remove the last element
-                fleetOwned[sender].pop();
-                break;
-            }
-        }
-    }
-
-
     /// @notice Transfer a fleet order.
     /// @param receiver The address of the receiver.
     /// @param id The id of the fleet order to transfer.
@@ -353,13 +356,13 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
     ) public override returns (bool) {
         require(id > 0, "id must be greater than 0");
         require(id <= totalFleet, "id does not exist in fleet");
-        require(fleetOwned[receiver].length <= MAX_FLEET_ORDER_PER_ADDRESS, "you have reached the maximum number of fleet orders");
+        require(fleetOwned[receiver].length < MAX_FLEET_ORDER_PER_ADDRESS, "you have reached the maximum number of fleet orders");
         
         balanceOf[msg.sender][id] -= amount;
         removeFleetOrder(id, msg.sender);
 
         balanceOf[receiver][id] += amount;
-        fleetOwned[receiver].push(id);
+        addFleetOrder(receiver, id);
 
         emit Transfer(msg.sender, msg.sender, receiver, id, amount);
 
@@ -381,7 +384,7 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
     ) public override returns (bool) {
         require(id > 0, "id must be greater than 0");
         require(id <= totalFleet, "id does not exist in fleet");
-        require(fleetOwned[receiver].length <= MAX_FLEET_ORDER_PER_ADDRESS, "you have reached the maximum number of fleet orders");
+        require(fleetOwned[receiver].length < MAX_FLEET_ORDER_PER_ADDRESS, "you have reached the maximum number of fleet orders");
 
         if (msg.sender != sender && !isOperator[sender][msg.sender]) {
             uint256 allowed = allowance[sender][msg.sender][id];
@@ -392,7 +395,7 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
         removeFleetOrder(id, sender);
 
         balanceOf[receiver][id] += amount;
-        fleetOwned[receiver].push(id);
+        addFleetOrder(receiver, id);
 
         emit Transfer(msg.sender, sender, receiver, id, amount);
 
@@ -403,11 +406,10 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
     /// @notice Withdraw sales from fleet order book.
     /// @param token The address of the ERC20 contract.
     /// @param to The address to send the sales to.
-    function withdrawFleetOrderSales(address token, address to) external onlyOwner {
+    function withdrawFleetOrderSales(address token, address to) external onlyOwner nonReentrant {
         IERC20 tokenContract = IERC20(token);
         require(tokenContract.balanceOf(address(this)) > 0, 'not enough tokens');
-        bool transferred = tokenContract.transfer(to, tokenContract.balanceOf(address(this)));
-        require(transferred, "failed transfer"); 
+        tokenContract.safeTransfer(to, tokenContract.balanceOf(address(this)));
     }
 
 }
