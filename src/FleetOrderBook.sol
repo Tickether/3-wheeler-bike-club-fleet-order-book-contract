@@ -82,6 +82,18 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     string public contractURI;
     
 
+    /// @notice Pause the contract 
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+
+    /// @notice Unpause the contract
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
+
     /// @notice Set the contract level URI.
     /// @param _contractURI The URI to set.
     function setContractURI(string memory _contractURI) external onlyOwner {
