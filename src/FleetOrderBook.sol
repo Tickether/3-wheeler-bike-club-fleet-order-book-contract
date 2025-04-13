@@ -58,6 +58,8 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
     /// @notice Number of decimals for the ERC20 token.
     uint256 public constant TOKEN_DECIMALS = 18;
     
+    /// @notice owner => list of fleet order IDs
+    mapping(address => uint256[]) private fleetOwned;
     /// @notice Total fractions of a token representing a 3-wheeler.
     mapping(uint256 id => uint256) public totalFractions;
     /// @notice Representing IRL fullfilled 3-wheeler fleet order.
@@ -170,6 +172,18 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
     }
 
 
+    /// @notice Check if a fleet order is owned by an address.
+    /// @param id The id of the fleet order to check.
+    /// @return bool True if the fleet order is owned by the address, false otherwise.
+    function isFleetOwned(uint256 id) internal view returns (bool) {
+        for (uint i = 0; i < fleetOwned[msg.sender].length; i++) {
+            if (fleetOwned[msg.sender][i] == id) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /// @notice Order a fleet onchain.
     /// @param fractions The number of fractions to order.
     /// @param erc20Contract The address of the ERC20 contract.
@@ -187,8 +201,11 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
         if (fractions == MAX_FLEET_FRACTION) {
             //pay fee
             payFeeERC20(fractions, erc20Contract);
-            // mint fractions
+            // id counter
             totalFleet++;
+            // add fleet order ID to fleetOwned
+            fleetOwned[msg.sender].push(totalFleet);
+            // mint fractions
             _mint(msg.sender, totalFleet, 1);
             emit FleetOrdered(totalFleet, msg.sender);
         }
@@ -199,10 +216,15 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
             if (lastFleetFractionID < 1) {
                 // pay fee
                 payFeeERC20(fractions, erc20Contract);
-                // mint fractions
+                // id counter
                 totalFleet++;
                 lastFleetFractionID = totalFleet;
                 totalFractions[lastFleetFractionID] = totalFractions[lastFleetFractionID] + fractions;
+                // add fleet order ID to fleetOwned
+                if (!isFleetOwned(totalFleet)) {
+                    fleetOwned[msg.sender].push(totalFleet);
+                }
+                // mint fractions
                 _mint(msg.sender, lastFleetFractionID, fractions);
                 emit FleetFractionOrdered(lastFleetFractionID, msg.sender, fractions);
 
@@ -215,16 +237,25 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
                 if (fractionsLeft < 1) {
                     // pay fee
                     payFeeERC20(fractions, erc20Contract);
-                    // mint fractions
+                    // id counter
                     totalFleet++;
                     lastFleetFractionID = totalFleet;
                     totalFractions[lastFleetFractionID] = totalFractions[lastFleetFractionID] + fractions;
+                    // add fleet order ID to fleetOwned
+                    if (!isFleetOwned(totalFleet)) {
+                        fleetOwned[msg.sender].push(totalFleet);
+                    }
+                    // mint fractions
                     _mint(msg.sender, lastFleetFractionID, fractions);
                     emit FleetFractionOrdered(lastFleetFractionID, msg.sender, fractions);
                 } else {
                     if (fractions <= fractionsLeft) {
                         //pay fee
                         payFeeERC20(fractions, erc20Contract);
+                        // add fleet order ID to fleetOwned
+                        if (!isFleetOwned(lastFleetFractionID)) {
+                            fleetOwned[msg.sender].push(lastFleetFractionID);
+                        }
                         // mint fractions
                         totalFractions[lastFleetFractionID] = totalFractions[lastFleetFractionID] + fractions;
                         _mint(msg.sender, lastFleetFractionID, fractions);
@@ -232,6 +263,11 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
                     } else {
                         //pay fee
                         payFeeERC20(fractions, erc20Contract);
+
+                        // add fleet order ID to fleetOwned
+                        if (!isFleetOwned(lastFleetFractionID)) {
+                            fleetOwned[msg.sender].push(lastFleetFractionID);
+                        }
                         
                         // check overflow value 
                         uint256 overflowFractions = fractions - fractionsLeft;
@@ -241,10 +277,13 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
                         _mint(msg.sender, lastFleetFractionID, fractionsLeft);
                         emit FleetFractionOrdered(lastFleetFractionID, msg.sender, fractionsLeft);
                         
-                        //...mint overflow
+                        // id counter
                         totalFleet++;
                         lastFleetFractionID = totalFleet;
                         totalFractions[lastFleetFractionID] = totalFractions[lastFleetFractionID] + overflowFractions;
+                        // add fleet order ID to fleetOwned
+                        fleetOwned[msg.sender].push(totalFleet);
+                        //...mint overflow
                         _mint(msg.sender, lastFleetFractionID, overflowFractions);
                         emit FleetFractionOrdered(lastFleetFractionID, msg.sender, overflowFractions);
                     }
@@ -252,6 +291,14 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
             }
         }
 
+    }
+
+
+    /// @notice Get the fleet orders owned by an address.
+    /// @param owner The address of the owner.
+    /// @return The fleet orders owned by the address.
+    function getFleetOwned(address owner) external view returns (uint256[] memory) {
+        return fleetOwned[owner];
     }
 
 
@@ -274,6 +321,56 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
         return bytes(baseURI).length > 0 ? string.concat(baseURI, id.toString()) : "";
     }
 
+
+    /// @notice Remove a fleet order.
+    /// @param id The id of the fleet order to remove.
+    /// @param sender The address of the sender.
+    function removeFleetOrder(uint256 id, address sender) internal {
+        // Find and remove the id from fleetOwned for the specific owner
+        for (uint256 i = 0; i < fleetOwned[sender].length; i++) {
+            if (fleetOwned[sender][i] == id) {
+                // Move the last element to the position of the element to be removed
+                fleetOwned[sender][i] = fleetOwned[sender][fleetOwned[sender].length - 1];
+                // Remove the last element
+                fleetOwned[sender].pop();
+                break;
+            }
+        }
+    }
+
+
+    /// @notice Transfer a fleet order.
+    /// @param sender The address of the sender.
+    /// @param receiver The address of the receiver.
+    /// @param id The id of the fleet order to transfer.
+    /// @param amount The amount of fleet order to transfer.
+    /// @return bool True if the transfer was successful, false otherwise.
+    function transferFrom(
+        address sender,
+        address receiver,
+        uint256 id,
+        uint256 amount
+    ) public override returns (bool) {
+        require(id > 0, "id must be greater than 0");
+        require(id <= totalFleet, "id does not exist in fleet");
+
+        if (msg.sender != sender && !isOperator[sender][msg.sender]) {
+            uint256 allowed = allowance[sender][msg.sender][id];
+            if (allowed != type(uint256).max) allowance[sender][msg.sender][id] = allowed - amount;
+        }
+
+        balanceOf[sender][id] -= amount;
+        removeFleetOrder(id, sender);
+
+        balanceOf[receiver][id] += amount;
+        fleetOwned[receiver].push(id);
+
+        emit Transfer(msg.sender, sender, receiver, id, amount);
+
+        return true;
+    }
+
+
     /// @notice Withdraw sales from fleet order book.
     /// @param token The address of the ERC20 contract.
     /// @param to The address to send the sales to.
@@ -283,4 +380,5 @@ contract FleetOrderBook is Ownable, ERC6909, IERC6909TokenSupply, IERC6909Conten
         bool transferred = tokenContract.transfer(to, tokenContract.balanceOf(address(this)));
         require(transferred, "failed transfer"); 
     }
+
 }
