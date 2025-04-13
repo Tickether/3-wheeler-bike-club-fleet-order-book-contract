@@ -36,6 +36,10 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     event FleetOrdered(uint256 indexed fleetId, address indexed buyer);
     /// @notice Event emitted when a fleet fraction order is placed.
     event FleetFractionOrdered(uint256 indexed fleetId, address indexed buyer, uint256 indexed fractions);
+    /// @notice Event emitted when fleet sales are withdrawn.
+    event FleetSalesWithdrawn(address indexed token, address indexed to, uint256 amount);
+    /// @notice Event emitted when a fleet order is fulfilled.
+    event FleetOrderFulfilled(uint256 indexed id);
     /// @notice Event emitted when an ERC20 token is added to the fleet.
     event ERC20Added(address indexed token);
     /// @notice Event emitted when an ERC20 token is removed from the fleet.
@@ -342,6 +346,7 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         require(id > 0, "id must be greater than 0");
         require(id <= totalFleet, "id does not exist in fleet");
         isFleetOrderFulfilled[id] = true;
+        emit FleetOrderFulfilled(id);
     }
     
 
@@ -419,9 +424,12 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     /// @param token The address of the ERC20 contract.
     /// @param to The address to send the sales to.
     function withdrawFleetOrderSales(address token, address to) external onlyOwner nonReentrant {
+        require(token != address(0), "Invalid token address");
         IERC20 tokenContract = IERC20(token);
-        require(tokenContract.balanceOf(address(this)) > 0, 'not enough tokens');
-        tokenContract.safeTransfer(to, tokenContract.balanceOf(address(this)));
+        uint256 amount = tokenContract.balanceOf(address(this));
+        require(amount > 0, 'not enough tokens');
+        tokenContract.safeTransfer(to, amount);
+        emit FleetSalesWithdrawn(token, to, amount);
     }
 
 }
