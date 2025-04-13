@@ -222,6 +222,90 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     }
 
 
+    /// @notice Handle a full fleet order.
+    /// @param fractions The number of fractions to order.
+    /// @param erc20Contract The address of the ERC20 contract.
+    function handleFullFleetOrder(uint256 fractions, address erc20Contract) internal {
+        //pay fee
+        payFeeERC20(fractions, erc20Contract);
+        // id counter
+        totalFleet++;
+        // add fleet order ID to fleetOwned
+        addFleetOrder(msg.sender, totalFleet);
+        // mint fractions
+        _mint(msg.sender, totalFleet, 1);
+        emit FleetOrdered(totalFleet, msg.sender);   
+    }
+
+
+    /// @notice Handle an initial fractional fleet order.
+    /// @param fractions The number of fractions to order.
+    /// @param erc20Contract The address of the ERC20 contract.
+    function handleInitialFractionsFleetOrder(uint256 fractions, address erc20Contract) internal {
+        // pay fee
+        payFeeERC20(fractions, erc20Contract);
+        // id counter
+        totalFleet++;
+        lastFleetFractionID = totalFleet;
+        totalFractions[lastFleetFractionID] = totalFractions[lastFleetFractionID] + fractions;
+        // add fleet order ID to fleetOwned
+        addFleetOrder(msg.sender, totalFleet);
+        // mint fractions
+        _mint(msg.sender, lastFleetFractionID, fractions);
+        emit FleetFractionOrdered(lastFleetFractionID, msg.sender, fractions);
+    }
+    
+
+    /// @notice Handle an additional fractional fleet order.
+    /// @param fractions The number of fractions to order.
+    /// @param erc20Contract The address of the ERC20 contract.
+    function handleAdditionalFractionsFleetOrder(uint256 fractions, address erc20Contract) internal {
+        //pay fee
+        payFeeERC20(fractions, erc20Contract);
+        // add fleet order ID to fleetOwned
+        if (!isFleetOwned(lastFleetFractionID)) {
+            addFleetOrder(msg.sender, lastFleetFractionID);
+        }
+        // mint fractions
+        totalFractions[lastFleetFractionID] = totalFractions[lastFleetFractionID] + fractions;
+        _mint(msg.sender, lastFleetFractionID, fractions);
+        emit FleetFractionOrdered(lastFleetFractionID, msg.sender, fractions);
+    }
+
+   
+    /// @notice Handle a fractional fleet order overflow.
+    /// @param fractions The number of fractions to order.
+    /// @param erc20Contract The address of the ERC20 contract.
+    /// @param fractionsLeft The number of fractions left.
+    function handleFractionsFleetOrderOverflow(uint256 fractions, address erc20Contract, uint256 fractionsLeft) internal {
+        //pay fee
+        payFeeERC20(fractions, erc20Contract);
+
+        // add fleet order ID to fleetOwned
+        if (!isFleetOwned(lastFleetFractionID)) {
+            addFleetOrder(msg.sender, lastFleetFractionID);
+        }
+        
+        // check overflow value 
+        uint256 overflowFractions = fractions - fractionsLeft;
+
+        // mint what is posible then...
+        totalFractions[lastFleetFractionID] = totalFractions[lastFleetFractionID] + fractionsLeft;
+        _mint(msg.sender, lastFleetFractionID, fractionsLeft);
+        emit FleetFractionOrdered(lastFleetFractionID, msg.sender, fractionsLeft);
+        
+        // id counter
+        totalFleet++;
+        lastFleetFractionID = totalFleet;
+        totalFractions[lastFleetFractionID] = totalFractions[lastFleetFractionID] + overflowFractions;
+        // add fleet order ID to fleetOwned
+        addFleetOrder(msg.sender, totalFleet);
+        //...mint overflow
+        _mint(msg.sender, lastFleetFractionID, overflowFractions);
+        emit FleetFractionOrdered(lastFleetFractionID, msg.sender, overflowFractions);
+    }
+    
+
     /// @notice Order a fleet onchain.
     /// @param fractions The number of fractions to order.
     /// @param erc20Contract The address of the ERC20 contract.
@@ -237,35 +321,14 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
 
         // if minting all fractions
         if (fractions == MAX_FLEET_FRACTION) {
-            //pay fee
-            payFeeERC20(fractions, erc20Contract);
-            // id counter
-            totalFleet++;
-            // add fleet order ID to fleetOwned
-            addFleetOrder(msg.sender, totalFleet);
-            // mint fractions
-            _mint(msg.sender, totalFleet, 1);
-            emit FleetOrdered(totalFleet, msg.sender);
+            handleFullFleetOrder(fractions, erc20Contract);
         }
 
         // if minting some fractions
         if (fractions < MAX_FLEET_FRACTION) {
             // if first mint ie no last fleetFraction ID we create one
             if (lastFleetFractionID < 1) {
-                // pay fee
-                payFeeERC20(fractions, erc20Contract);
-                // id counter
-                totalFleet++;
-                lastFleetFractionID = totalFleet;
-                totalFractions[lastFleetFractionID] = totalFractions[lastFleetFractionID] + fractions;
-                // add fleet order ID to fleetOwned
-                if (!isFleetOwned(totalFleet)) {
-                    addFleetOrder(msg.sender, totalFleet);
-                }
-                // mint fractions
-                _mint(msg.sender, lastFleetFractionID, fractions);
-                emit FleetFractionOrdered(lastFleetFractionID, msg.sender, fractions);
-
+                handleInitialFractionsFleetOrder(fractions, erc20Contract);
             // if not first mint
             } else {
                 // check fraction left of last token id
@@ -273,57 +336,12 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
 
                 // if fractions Left is zero ie last fraction quota completely filled
                 if (fractionsLeft < 1) {
-                    // pay fee
-                    payFeeERC20(fractions, erc20Contract);
-                    // id counter
-                    totalFleet++;
-                    lastFleetFractionID = totalFleet;
-                    totalFractions[lastFleetFractionID] = totalFractions[lastFleetFractionID] + fractions;
-                    // add fleet order ID to fleetOwned
-                    if (!isFleetOwned(totalFleet)) {
-                        addFleetOrder(msg.sender, totalFleet);
-                    }
-                    // mint fractions
-                    _mint(msg.sender, lastFleetFractionID, fractions);
-                    emit FleetFractionOrdered(lastFleetFractionID, msg.sender, fractions);
+                    handleInitialFractionsFleetOrder(fractions, erc20Contract);
                 } else {
                     if (fractions <= fractionsLeft) {
-                        //pay fee
-                        payFeeERC20(fractions, erc20Contract);
-                        // add fleet order ID to fleetOwned
-                        if (!isFleetOwned(lastFleetFractionID)) {
-                            addFleetOrder(msg.sender, lastFleetFractionID);
-                        }
-                        // mint fractions
-                        totalFractions[lastFleetFractionID] = totalFractions[lastFleetFractionID] + fractions;
-                        _mint(msg.sender, lastFleetFractionID, fractions);
-                        emit FleetFractionOrdered(lastFleetFractionID, msg.sender, fractions);
+                        handleAdditionalFractionsFleetOrder(fractions, erc20Contract);
                     } else {
-                        //pay fee
-                        payFeeERC20(fractions, erc20Contract);
-
-                        // add fleet order ID to fleetOwned
-                        if (!isFleetOwned(lastFleetFractionID)) {
-                            addFleetOrder(msg.sender, lastFleetFractionID);
-                        }
-                        
-                        // check overflow value 
-                        uint256 overflowFractions = fractions - fractionsLeft;
-
-                        // mint what is posible then...
-                        totalFractions[lastFleetFractionID] = totalFractions[lastFleetFractionID] + fractionsLeft;
-                        _mint(msg.sender, lastFleetFractionID, fractionsLeft);
-                        emit FleetFractionOrdered(lastFleetFractionID, msg.sender, fractionsLeft);
-                        
-                        // id counter
-                        totalFleet++;
-                        lastFleetFractionID = totalFleet;
-                        totalFractions[lastFleetFractionID] = totalFractions[lastFleetFractionID] + overflowFractions;
-                        // add fleet order ID to fleetOwned
-                        fleetOwned[msg.sender].push(totalFleet);
-                        //...mint overflow
-                        _mint(msg.sender, lastFleetFractionID, overflowFractions);
-                        emit FleetFractionOrdered(lastFleetFractionID, msg.sender, overflowFractions);
+                        handleFractionsFleetOrderOverflow(fractions, erc20Contract, fractionsLeft);
                     }
                 }
             }
@@ -379,7 +397,10 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         removeFleetOrder(id, msg.sender);
 
         balanceOf[receiver][id] += amount;
-        addFleetOrder(receiver, id);
+        // add fleet order ID to fleetOwned
+        if (!isFleetOwned(id)) {
+            addFleetOrder(receiver, id);
+        }
 
         emit Transfer(msg.sender, msg.sender, receiver, id, amount);
 
@@ -412,8 +433,11 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         removeFleetOrder(id, sender);
 
         balanceOf[receiver][id] += amount;
-        addFleetOrder(receiver, id);
-
+        // add fleet order ID to fleetOwned
+        if (!isFleetOwned(id)) {
+            addFleetOrder(receiver, id);
+        }
+        
         emit Transfer(msg.sender, sender, receiver, id, amount);
 
         return true;
