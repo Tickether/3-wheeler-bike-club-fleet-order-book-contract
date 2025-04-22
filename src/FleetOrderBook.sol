@@ -17,6 +17,8 @@ import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 //import { Strings } from "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/Strings.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 //import { IERC20 } from "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+//import { IERC20Metadata } from "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 //import { SafeERC20 } from "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/utils/SafeERC20.sol";
 
@@ -38,8 +40,6 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     event FleetFractionOrdered(uint256 indexed fleetId, address indexed buyer, uint256 indexed fractions);
     /// @notice Event emitted when fleet sales are withdrawn.
     event FleetSalesWithdrawn(address indexed token, address indexed to, uint256 amount);
-    /// @notice Event emitted when a fleet order is fulfilled.
-    event FleetOrderFulfilled(uint256 indexed id);
     /// @notice Event emitted when an ERC20 token is added to the fleet.
     event ERC20Added(address indexed token);
     /// @notice Event emitted when an ERC20 token is removed from the fleet.
@@ -92,17 +92,15 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
      /// @notice Maximum number of fleet orders per address.
     uint256 public immutable MAX_FLEET_ORDER_PER_ADDRESS = 100;
 
-    /// @notice Number of decimals for the ERC20 token.
-    uint256 public constant TOKEN_DECIMALS = 18;
-
     /// @notice State constants - each state is a power of 2 (bit position)
-    uint256 constant CREATED = 1 << 0;      // 0000001
-    uint256 constant SHIPPED = 1 << 1;      // 0000010
-    uint256 constant ARRIVED = 1 << 2;      // 0000100
-    uint256 constant CLEARED = 1 << 3;      // 0001000
-    uint256 constant REGISTERED = 1 << 4;   // 0010000
-    uint256 constant ASSIGNED = 1 << 5;     // 0100000
-    uint256 constant TRANSFERRED = 1 << 6;  // 1000000
+    uint256 constant INIT = 1 << 0;         // 00000001
+    uint256 constant CREATED = 1 << 1;      // 00000010
+    uint256 constant SHIPPED = 1 << 2;      // 00000100
+    uint256 constant ARRIVED = 1 << 3;      // 00001000
+    uint256 constant CLEARED = 1 << 4;      // 00010000
+    uint256 constant REGISTERED = 1 << 5;   // 00100000
+    uint256 constant ASSIGNED = 1 << 6;     // 01000000
+    uint256 constant TRANSFERRED = 1 << 7;  // 10000000
     /// @notice Maximum number of fleet orders that can be updated in bulk
     uint256 constant MAX_BULK_UPDATE = 50;
 
@@ -189,15 +187,19 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     /// @notice Pay fee in ERC20.
     /// @param fractions The number of fractions to order.
     /// @param erc20Contract The address of the ERC20 contract.
-    function payFeeERC20(uint256 fractions, address erc20Contract) 
-        internal 
-    {
-        
+    function payFeeERC20(uint256 fractions, address erc20Contract) internal {
         IERC20 tokenContract = IERC20(erc20Contract);
-        uint256 price = fleetFractionPrice * fractions;
-        uint256 amount = price * (10 ** TOKEN_DECIMALS);
-        if (tokenContract.balanceOf(msg.sender) < amount) revert NotEnoughTokens();
-        tokenContract.safeTransferFrom( msg.sender, address(this), amount );
+        uint256 decimals = IERC20Metadata(erc20Contract).decimals();
+        
+        // Cache fleetFractionPrice in memory
+        uint256 price = fleetFractionPrice;
+        
+        // Use unchecked for known safe operations
+        unchecked {
+            uint256 amount = price * fractions * (10 ** decimals);
+            if (tokenContract.balanceOf(msg.sender) < amount) revert NotEnoughTokens();
+            tokenContract.safeTransferFrom(msg.sender, address(this), amount);
+        }
     }
 
 
@@ -232,9 +234,9 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     /// @param receiver The address of the receiver.
     /// @param id The id of the fleet order to add.
     function addFleetOrder(address receiver, uint256 id) internal {
-        fleetOwned[receiver].push(id);
-        // Record the index for orderId in the owner's fleetOwned array.
-        fleetOwnedIndex[receiver][id] = fleetOwned[receiver].length - 1;
+        uint256[] storage owned = fleetOwned[receiver];
+        owned.push(id);
+        fleetOwnedIndex[receiver][id] = owned.length - 1;
     }
 
 
@@ -261,13 +263,15 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
 
 
     /// @notice Handle a full fleet order.
-    /// @param fractions The number of fractions to order.
     /// @param erc20Contract The address of the ERC20 contract.
-    function handleFullFleetOrder(uint256 fractions, address erc20Contract) internal {
+    function handleFullFleetOrder(address erc20Contract) internal {
         //pay fee
-        payFeeERC20(fractions, erc20Contract);
+        payFeeERC20(MAX_FLEET_FRACTION, erc20Contract);
         // id counter
         totalFleet++;
+        totalFractions[totalFleet] = 1;
+        // set status
+        setFleetOrderStatus(totalFleet, INIT);
         // add fleet order ID to fleetOwned
         addFleetOrder(msg.sender, totalFleet);
         // mint fractions
@@ -286,6 +290,8 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         totalFleet++;
         lastFleetFractionID = totalFleet;
         totalFractions[lastFleetFractionID] = totalFractions[lastFleetFractionID] + fractions;
+        // set status
+        setFleetOrderStatus(totalFleet, INIT);
         // add fleet order ID to fleetOwned
         addFleetOrder(msg.sender, totalFleet);
         // mint fractions
@@ -336,6 +342,8 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         totalFleet++;
         lastFleetFractionID = totalFleet;
         totalFractions[lastFleetFractionID] = totalFractions[lastFleetFractionID] + overflowFractions;
+        // set status
+        setFleetOrderStatus(lastFleetFractionID, INIT);
         // add fleet order ID to fleetOwned
         addFleetOrder(msg.sender, totalFleet);
         //...mint overflow
@@ -355,7 +363,7 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         if (totalFleet + amount > maxFleetOrder) revert MaxFleetOrderExceeded();
 
         for (uint256 i = 0; i < amount; i++) {
-            handleFullFleetOrder(MAX_FLEET_FRACTION, erc20Contract);
+            handleFullFleetOrder(erc20Contract);
         }
     }
 
@@ -365,7 +373,6 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     /// @param erc20Contract The address of the ERC20 contract.
     function orderFleet(uint256 fractions, address erc20Contract) external nonReentrant whenNotPaused {
         // Input validation
-        if (fleetOwned[msg.sender].length >= MAX_FLEET_ORDER_PER_ADDRESS) revert MaxFleetOrderPerAddressExceeded();
         if (!isTokenValid(erc20Contract)) revert TokenNotAccepted();
         if (erc20Contract == address(0)) revert InvalidTokenAddress();
         if (fractions < MIN_FLEET_FRACTION) revert InvalidFractionAmount();
@@ -373,8 +380,9 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
 
         // if minting all fractions (full order)
         if (fractions == MAX_FLEET_FRACTION) {
+            if (fleetOwned[msg.sender].length + 1 > MAX_FLEET_ORDER_PER_ADDRESS) revert MaxFleetOrderPerAddressExceeded();
             if (totalFleet + 1 > maxFleetOrder) revert MaxFleetOrderExceeded();
-            handleFullFleetOrder(fractions, erc20Contract);
+            handleFullFleetOrder(erc20Contract);
         }
         // if minting some fractions (partial order)
         else {
@@ -389,6 +397,7 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
 
                 // if fractions Left is zero ie last fraction quota completely filled
                 if (fractionsLeft < 1) {
+                    if (fleetOwned[msg.sender].length + 1 > MAX_FLEET_ORDER_PER_ADDRESS) revert MaxFleetOrderPerAddressExceeded();
                     if (totalFleet + 1 > maxFleetOrder) revert MaxFleetOrderExceeded();
                     handleInitialFractionsFleetOrder(fractions, erc20Contract);
                 } else {
@@ -398,6 +407,7 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
                     }
                     // if requested fractions exceed remaining space, split into two orders
                     else {
+                        if (fleetOwned[msg.sender].length + 1 > MAX_FLEET_ORDER_PER_ADDRESS) revert MaxFleetOrderPerAddressExceeded();
                         if (totalFleet + 1 > maxFleetOrder) revert MaxFleetOrderExceeded();
                         handleFractionsFleetOrderOverflow(fractions, erc20Contract, fractionsLeft);
                     }
@@ -419,9 +429,8 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     /// @param status The status to check
     /// @return bool True if the status is valid
     function isValidStatus(uint256 status) internal pure returns (bool) {
-        return status == CREATED || status == SHIPPED || status == ARRIVED || 
-               status == CLEARED || status == REGISTERED || status == ASSIGNED || 
-               status == TRANSFERRED;
+        // Use bitwise operations for faster validation
+        return status > 0 && status <= TRANSFERRED && (status & (status - 1)) == 0;
     }
 
     /// @notice Check if a state transition is valid
@@ -429,6 +438,7 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     /// @param newStatus The new status to transition to
     /// @return bool True if the transition is valid
     function isValidTransition(uint256 currentStatus, uint256 newStatus) internal pure returns (bool) {
+        if (currentStatus == INIT) return newStatus == CREATED;
         if (currentStatus == CREATED) return newStatus == SHIPPED;
         if (currentStatus == SHIPPED) return newStatus == ARRIVED;
         if (currentStatus == ARRIVED) return newStatus == CLEARED;
@@ -468,6 +478,12 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         return true;
     }
 
+
+    function setFleetOrderStatus(uint256 id, uint256 status) internal {
+        fleetOrderStatus[id] = status;
+        emit FleetOrderStatusChanged(id, status);
+    }
+
     /// @notice Set the status of multiple fleet orders
     /// @param ids The ids of the fleet orders to set the status for
     /// @param status The new status to set
@@ -483,8 +499,7 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
 
         // Now we can safely update all statuses
         for (uint256 i = 0; i < ids.length; i++) {
-            fleetOrderStatus[ids[i]] = status;
-            emit FleetOrderStatusChanged(ids[i], status);
+            setFleetOrderStatus(ids[i], status);
         }
     }
 
@@ -496,6 +511,7 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         if (id > totalFleet) revert IdDoesNotExist();
         uint256 status = fleetOrderStatus[id];
         
+        if (status == INIT) return "Initialized";
         if (status == CREATED) return "Created";
         if (status == SHIPPED) return "Shipped";
         if (status == ARRIVED) return "Arrived";
