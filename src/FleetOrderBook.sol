@@ -48,6 +48,14 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     event FleetFractionPriceChanged(uint256 oldPrice, uint256 newPrice);
     /// @notice Event emitted when the maximum fleet orders is changed.
     event MaxFleetOrderChanged(uint256 oldMax, uint256 newMax);
+    /// @notice Event emitted when a fleet order status changes.
+    event FleetOrderStatusChanged(uint256 indexed id, uint256 status);
+
+    /// @notice Error messages
+    error InvalidStatus();
+    error InvalidStateTransition();
+    error DuplicateIds();
+    error BulkUpdateLimitExceeded();
     
     constructor() Ownable(_msgSender()) { }
     
@@ -67,23 +75,47 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     uint256 public immutable MAX_FLEET_FRACTION = 50;
      /// @notice Maximum number of fleet orders per address.
     uint256 public immutable MAX_FLEET_ORDER_PER_ADDRESS = 100;
+
     /// @notice Number of decimals for the ERC20 token.
     uint256 public constant TOKEN_DECIMALS = 18;
-    
+
+    /// @notice State constants - each state is a power of 2 (bit position)
+    uint256 constant CREATED = 1 << 0;      // 0000001
+    uint256 constant SHIPPED = 1 << 1;      // 0000010
+    uint256 constant ARRIVED = 1 << 2;      // 0000100
+    uint256 constant CLEARED = 1 << 3;      // 0001000
+    uint256 constant REGISTERED = 1 << 4;   // 0010000
+    uint256 constant ASSIGNED = 1 << 5;     // 0100000
+    uint256 constant TRANSFERRED = 1 << 6;  // 1000000
+    /// @notice Maximum number of fleet orders that can be updated in bulk
+    uint256 constant MAX_BULK_UPDATE = 50;
+
+    /// @notice Fleet order status enum for frontend integration
+    enum FleetStatus {
+        Created,
+        Shipped,
+        Arrived,
+        Cleared,
+        Registered,
+        Assigned,
+        Transferred
+    }
+
+    /// @notice Mapping to store the IRL fulfillment state of each 3-wheeler fleet order
+    mapping(uint256 => uint256) public fleetOrderStatus;
     /// @notice check if ERC20 is accepted for fleet orders
     mapping(address => bool) public fleetERC20;
     /// @notice owner => list of fleet order IDs
     mapping(address => uint256[]) private fleetOwned;
     /// @notice Total fractions of a token representing a 3-wheeler.
     mapping(uint256 id => uint256) public totalFractions;
-    /// @notice Representing IRL fulfilled 3-wheeler fleet order.
-    mapping(uint256 id => bool) public isFleetOrderFulfilled;
     /// @notice tracking fleet order index for each owner
     mapping(address => mapping(uint256 => uint256)) private fleetOwnedIndex;
     
     /// @notice The contract level URI.
     string public contractURI;
     
+
 
     /// @notice Pause the contract 
     function pause() external onlyOwner {
@@ -320,6 +352,7 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         }
     }
 
+
     /// @notice Order a fleet onchain.
     /// @param fractions The number of fractions to order.
     /// @param erc20Contract The address of the ERC20 contract.
@@ -380,13 +413,81 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     }
 
 
-    /// @notice Fulfill a fleet order.
-    /// @param id The id of the fleet order to fulfill.
-    function fulfillFleetOrder(uint256 id) external onlyOwner {
+    /// @notice Check if a status value is valid
+    /// @param status The status to check
+    /// @return bool True if the status is valid
+    function isValidStatus(uint256 status) internal pure returns (bool) {
+        return status == CREATED || status == SHIPPED || status == ARRIVED || 
+               status == CLEARED || status == REGISTERED || status == ASSIGNED || 
+               status == TRANSFERRED;
+    }
+
+    /// @notice Check if a state transition is valid
+    /// @param currentStatus The current status
+    /// @param newStatus The new status to transition to
+    /// @return bool True if the transition is valid
+    function isValidTransition(uint256 currentStatus, uint256 newStatus) internal pure returns (bool) {
+        if (currentStatus == CREATED) return newStatus == SHIPPED;
+        if (currentStatus == SHIPPED) return newStatus == ARRIVED;
+        if (currentStatus == ARRIVED) return newStatus == CLEARED;
+        if (currentStatus == CLEARED) return newStatus == REGISTERED;
+        if (currentStatus == REGISTERED) return newStatus == ASSIGNED;
+        if (currentStatus == ASSIGNED) return newStatus == TRANSFERRED;
+        return false;
+    }
+
+    /// @notice Check for duplicate IDs in an array
+    /// @param ids The array of IDs to check
+    /// @return bool True if there are no duplicates
+    function hasNoDuplicates(uint256[] memory ids) internal pure returns (bool) {
+        for (uint256 i = 0; i < ids.length; i++) {
+            for (uint256 j = i + 1; j < ids.length; j++) {
+                if (ids[i] == ids[j]) return false;
+            }
+        }
+        return true;
+    }
+
+    /// @notice Set the status of a fleet order
+    /// @param id The id of the fleet order to set the status for
+    /// @param status The new status to set
+    function setFleetOrderStatus(uint256 id, uint256 status) internal {
         require(id > 0, "id must be greater than 0");
         require(id <= totalFleet, "id does not exist in fleet");
-        isFleetOrderFulfilled[id] = true;
-        emit FleetOrderFulfilled(id);
+        if (!isValidStatus(status)) revert InvalidStatus();
+        
+        uint256 currentStatus = fleetOrderStatus[id];
+        if (currentStatus != 0 && !isValidTransition(currentStatus, status)) {
+            revert InvalidStateTransition();
+        }
+        
+        fleetOrderStatus[id] = status;
+        emit FleetOrderStatusChanged(id, status);
+    }
+
+    /// @notice Set the status of multiple fleet orders
+    /// @param ids The ids of the fleet orders to set the status for
+    /// @param status The new status to set
+    function setBulkFleetOrderStatus(uint256[] memory ids, uint256 status) external onlyOwner {
+        require(ids.length > 0, "ids must be greater than 0");
+        if (ids.length > MAX_BULK_UPDATE) revert BulkUpdateLimitExceeded();
+        if (!hasNoDuplicates(ids)) revert DuplicateIds();
+        if (!isValidStatus(status)) revert InvalidStatus();
+
+        for (uint256 i = 0; i < ids.length; i++) {
+            setFleetOrderStatus(ids[i], status);
+        }
+    }
+
+    /// @notice Get the current status of a fleet order
+    /// @param id The id of the fleet order to get the status for
+    /// @return uint256 The current status of the fleet order
+    function getFleetOrderStatus(uint256 id) public view returns (uint256) {
+        require(id > 0, "id must be greater than 0");
+        require(id <= totalFleet, "id does not exist in fleet");
+        uint256 status = fleetOrderStatus[id];
+        require(isValidStatus(status), "Invalid status stored");
+        return status;
     }
     
 
@@ -488,6 +589,7 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         tokenContract.safeTransfer(to, amount);
         emit FleetSalesWithdrawn(token, to, amount);
     }
+
 
     receive() external payable { revert("no native token accepted"); }
     fallback() external payable { revert("no native token accepted"); }
