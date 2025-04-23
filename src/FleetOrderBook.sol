@@ -83,7 +83,7 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     /// @notice Maximum number of fleet orders.
     uint256 public maxFleetOrder = 24;
     /// @notice  Price per fleet fraction  in USD.
-    uint256 public fleetFractionPrice = 46;
+    uint256 public fleetFractionPrice = 36;
 
     /// @notice Minimum number of fractions per fleet order.
     uint256 public immutable MIN_FLEET_FRACTION = 1;
