@@ -79,11 +79,10 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     uint256 public totalFleet;
     /// @notice Last fleet fraction ID.
     uint256 public lastFleetFractionID;    
- 
     /// @notice Maximum number of fleet orders.
-    uint256 public maxFleetOrder = 24;
+    uint256 public maxFleetOrder;
     /// @notice  Price per fleet fraction  in USD.
-    uint256 public fleetFractionPrice = 36;
+    uint256 public fleetFractionPrice;
 
     /// @notice Minimum number of fractions per fleet order.
     uint256 public immutable MIN_FLEET_FRACTION = 1;
@@ -111,7 +110,9 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     /// @notice owner => list of fleet order IDs
     mapping(address => uint256[]) private fleetOwned;
     /// @notice Total fractions of a token representing a 3-wheeler.
-    mapping(uint256 id => uint256) public totalFractions;
+    mapping(uint256 => bool) public fleetFractioned;
+    /// @notice Total fractions of a token representing a 3-wheeler.
+    mapping(uint256 => uint256) public totalFractions;
     /// @notice tracking fleet order index for each owner
     mapping(address => mapping(uint256 => uint256)) private fleetOwnedIndex;
     
@@ -289,6 +290,7 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         // id counter
         totalFleet++;
         lastFleetFractionID = totalFleet;
+        fleetFractioned[lastFleetFractionID] = true;
         totalFractions[lastFleetFractionID] = totalFractions[lastFleetFractionID] + fractions;
         // set status
         setFleetOrderStatus(totalFleet, INIT);
@@ -341,6 +343,7 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         // id counter
         totalFleet++;
         lastFleetFractionID = totalFleet;
+        fleetFractioned[lastFleetFractionID] = true;
         totalFractions[lastFleetFractionID] = totalFractions[lastFleetFractionID] + overflowFractions;
         // set status
         setFleetOrderStatus(lastFleetFractionID, INIT);
