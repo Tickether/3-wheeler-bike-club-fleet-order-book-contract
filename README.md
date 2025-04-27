@@ -1,92 +1,58 @@
 # 3WB Fleet Order Book Contract
 
-A Solidity smart contract implementing fractional and full pre-orders for three-wheeler fleets on Celo, using ERC-6909 for on-chain tokenized order tracking.
+A Solidity smart contract for managing fractional and full investment pre-orders of three-wheeler fleets on Celo by minting ERC-6909 tokens as digital receipts.
 
-## 📖 Overview
+## 🚀 High-Level Features
 
-The **FleetOrderBook** contract lets investors place:
-- **Fractional orders**: buy a share of a 3-wheeler fleet.
-- **Full orders**: purchase an entire 3-wheeler.
+- **Fractional Orders**: Investors purchase between 1 and 50 fractions of a specific fleet (max fraction constant = 50).
+- **Full Orders**: Investors acquire all available fractions (50) in one transaction.
+- **ERC-6909 Tokenization**: Mints ERC-6909 tokens keyed by fleet ID, tracking balances and supply.
+- **Pausable**: Owner can pause/unpause all order-related functions.
+- **ReentrancyGuard**: Protects against reentrant attacks on state-changing methods.
+- **Configurable Parameters**: Owner can set fraction price (in USD), max total orders, and contract URI.
+- **ERC20 Payments**: Supports multiple stablecoin ERC20 tokens for order fees.
+- **Fleet Status Tracking**: Bitmask-based lifecycle states (Initialized → Created → Shipped → Arrived → Cleared → Registered → Assigned → Transferred).
+- **Ownership Transfer Overrides**: Custom `transfer` and `transferFrom` to maintain internal order ownership mappings.
+- **Bulk Status Updates**: Owner can update statuses for up to 50 orders in one call.
 
-Each order mints an ERC-6909 “order token” that represents the buyer’s stake. The contract supports pause/unpause, modular event logging, and reentrancy protection.
+## 📢 Public API
 
-## 🚀 Features
+| Function                                                                                 | Description                                                                         |
+| ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `orderFleet(uint256 fractions, address erc20Token)`                                      | Place a fractional or full order paying with `erc20Token`. Fractions 1–50 allowed.  |
+| `orderMultipleFleet(uint256 amount, address erc20Token)`                                 | Place `amount` full orders (each = 50 fractions).                                    |
+| `getFleetOwned(address owner) view returns (uint256[])`                                  | Retrieve all fleet order IDs owned by `owner`.                                       |
+| `setFleetFractionPrice(uint256 price)`                                                   | Owner: set price per fraction (non-zero).                                          |
+| `setMaxFleetOrder(uint256 maxOrders)`                                                    | Owner: increase max total orders allowed.                                           |
+| `addERC20(address erc20Token)`                                                           | Owner: add an accepted ERC20 token for payments.                                    |
+| `removeERC20(address erc20Token)`                                                        | Owner: remove an accepted ERC20 token.                                              |
+| `setContractURI(string memory uri)`                                                      | Owner: set base URI for `tokenURI`.                                                 |
+| `withdrawFleetOrderSales(address token, address to)`                                     | Owner: withdraw all collected `token` funds to `to`.                                 |
+| `pause()` / `unpause()`                                                                   | Owner: pause or resume order functions.                                             |
+| `setBulkFleetOrderStatus(uint256[] memory ids, uint256 status)`                          | Owner: update lifecycle status for multiple orders.                                 |
+| `getFleetOrderStatus(uint256 id) view returns (string)`                                  | View human-readable status of order `id`.                                           |
+| `tokenURI(uint256 id) public view returns (string)`                                      | Returns `contractURI + id`.                                                         |
+| `transfer(address to, uint256 id, uint256 amount)` override                              | ERC-6909: transfer `amount` tokens of `id` to `to`, maintaining internal mappings.    |
+| `transferFrom(address from, address to, uint256 id, uint256 amount)` override            | ERC-6909: transfer on behalf of `from` respecting approvals.                         |
 
-- **ERC-6909 Compliant**  
-  Tracks total and per-ID supply, plus content URIs.
+## 📋 Events
 
-- **Fractional & Full Orders**  
-  - `orderFractions(uint256 fleetId, uint256 fractions)`  
-  - `orderFull(uint256 fleetId)`
+- `event FleetOrdered(uint256 indexed fleetId, address indexed buyer)`
+- `event FleetFractionOrdered(uint256 indexed fleetId, address indexed buyer, uint256 indexed fractions)`
+- `event FleetSalesWithdrawn(address indexed token, address indexed to, uint256 amount)`
+- `event ERC20Added(address indexed token)`
+- `event ERC20Removed(address indexed token)`
+- `event FleetFractionPriceChanged(uint256 oldPrice, uint256 newPrice)`
+- `event MaxFleetOrderChanged(uint256 oldMax, uint256 newMax)`
+- `event FleetOrderStatusChanged(uint256 indexed id, uint256 status)`
 
-- **Pause/Unpause**  
-  Only owner can pause or resume state-changing functions.
-
-- **ReentrancyGuard**  
-  Protects against reentrant calls.
-
-- **Ownable**  
-  Owner-only configuration and withdrawal.
-
-- **Event Logging**  
-  `OrderPlaced`, `OrderFulfilled`, `Paused`, `Unpaused`, etc.
-
-## 📋 Contract Details
-
-- **Solidity Version**: `^0.8.13`  
-- **Imports**:  
-  - `solmate/tokens/ERC6909.sol`  
-  - `@openzeppelin/contracts/access/Ownable.sol`  
-  - `@openzeppelin/contracts/utils/Pausable.sol`  
-  - `@openzeppelin/contracts/utils/ReentrancyGuard.sol`
-
-### Key State Variables
-
-```solidity
-mapping(uint256 => uint256) public totalFractionsPerFleet;
-uint256 public nextFleetOrderId;
-```
-
-### Core Functions
-
-```solidity
-function orderFractions(uint256 fleetId, uint256 fractions) external payable;
-function orderFull(uint256 fleetId) external payable;
-function pause() external onlyOwner;
-function unpause() external onlyOwner;
-function withdraw(address to) external onlyOwner;
-```
-
-### Events
-
-```solidity
-event OrderPlaced(
-  uint256 indexed orderId,
-  address indexed buyer,
-  uint256 fleetId,
-  uint256 amount,
-  bool isFull
-);
-
-event OrderFulfilled(uint256 indexed orderId);
-event Paused(address account);
-event Unpaused(address account);
-```
-
-## 🛠️ Tech Stack
-
-- **Compiler**: Solidity `0.8.13`  
-- **Framework**: Foundry (Forge) for build, test, and deployment  
-- **Testing**: Foundry tests in `test/`  
-- **Contracts**: `src/FleetOrderBook.sol` plus interfaces
-
-## 📦 Getting Started
+## 🛠️ Setup & Development
 
 ### Prerequisites
 
-- [Foundry](https://book.getfoundry.sh/) installed (`forge`, `cast`, `anvil`)  
-- Node.js (for scripts)  
-- A Celo RPC endpoint and private key for deployment  
+- [Foundry](https://book.getfoundry.sh/) (`forge`, `anvil`) installed
+- Node.js (for any deployment/testing scripts)
+- A Celo RPC endpoint and a deployer private key
 
 ### Installation & Compilation
 
@@ -94,14 +60,11 @@ event Unpaused(address account);
 git clone https://github.com/3-Wheeler-Bike-Club/3-wheeler-bike-club-fleet-order-book-contract.git
 cd 3-wheeler-bike-club-fleet-order-book-contract
 
-# Ensure Foundry is installed/updated
-foundryup
-
-# Compile contracts
-forge build
+foundryup            # Ensure Foundry is up to date
+forge build          # Compile contracts
 ```
 
-### Running Tests
+### Testing
 
 ```bash
 forge test
@@ -109,60 +72,46 @@ forge test
 
 ### Deployment
 
-1. Create a `.env` file in project root:
+1. Create a `.env` file at project root:
 
    ```env
    PRIVATE_KEY=your_deployer_private_key
    CELO_RPC_URL=https://forno.celo.org
    ```
 
-2. Run the deployment script:
+2. Run the deploy script:
 
    ```bash
-   forge script script/Deploy.s.sol \
+   forge script scripts/Deploy.s.sol \
      --rpc-url $CELO_RPC_URL \
      --private-key $PRIVATE_KEY \
      --broadcast
    ```
 
-3. Note the deployed contract address printed in console.
+3. Note the deployed contract address from the console.
 
 ## 📁 Directory Structure
 
 ```
-/
 ├── src/                   # Solidity source files
 │   └── FleetOrderBook.sol
-├── test/                  # Foundry tests
-│   └── FleetOrderBook.t.sol
-├── script/                # Deployment scripts
-│   └── Deploy.s.sol
-├── lib/                   # External dependencies (ERC6909, etc.)
-├── foundry.toml           # Foundry configuration
-└── README.md              # This README
+├── src/interfaces/       # ERC-6909 and content URI interfaces
+├── scripts/               # Deployment scripts
+├── foundry.toml           # Foundry config
+└── README.md              # This file
 ```
 
 ## 🤝 Contributing
 
-1. Fork the repository  
-2. Create your branch:  
-   ```bash
-   git checkout -b feature/my-feature
-   ```
-3. Commit your changes:  
-   ```bash
-   git commit -m "Add my feature"
-   ```
-4. Push to your branch:  
-   ```bash
-   git push origin feature/my-feature
-   ```
-5. Open a Pull Request
+Contributions are welcome! Please:
 
-Please ensure your code adheres to existing style, and add tests for new features.
+1. Fork the repo
+2. Create a feature branch (`git checkout -b feature/...`)
+3. Write code and accompanying tests
+4. Commit, push, and open a PR
 
 ## 📄 License
 
-This project is licensed under the MIT License.
+MIT License. See [LICENSE](LICENSE) for details.
 ```
 
