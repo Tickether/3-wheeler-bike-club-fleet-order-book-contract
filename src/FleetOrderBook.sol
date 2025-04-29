@@ -338,7 +338,6 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         // mint what is posible then...
         totalFractions[lastFleetFractionID] = totalFractions[lastFleetFractionID] + fractionsLeft;
         _mint(msg.sender, lastFleetFractionID, fractionsLeft);
-        emit FleetFractionOrdered(lastFleetFractionID, msg.sender, fractionsLeft);
         
         // id counter
         totalFleet++;
@@ -351,7 +350,7 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         addFleetOrder(msg.sender, totalFleet);
         //...mint overflow
         _mint(msg.sender, lastFleetFractionID, overflowFractions);
-        emit FleetFractionOrdered(lastFleetFractionID, msg.sender, overflowFractions);
+        emit FleetFractionOrdered(lastFleetFractionID, msg.sender, fractions);
     }
     
 
