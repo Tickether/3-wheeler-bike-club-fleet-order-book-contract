@@ -37,8 +37,8 @@ A Solidity smart contract for managing fractional and full investment pre-orders
 
 ## 📋 Events
 
-- `event FleetOrdered(uint256 indexed fleetId, address indexed buyer)`
-- `event FleetFractionOrdered(uint256 indexed fleetId, address indexed buyer, uint256 indexed fractions)`
+- `event FleetOrdered(uint256[] indexed ids, address indexed buyer, uint256 amount)`
+- `event FleetFractionOrdered(uint256 indexed id, address indexed buyer, uint256 indexed fractions)`
 - `event FleetSalesWithdrawn(address indexed token, address indexed to, uint256 amount)`
 - `event ERC20Added(address indexed token)`
 - `event ERC20Removed(address indexed token)`
