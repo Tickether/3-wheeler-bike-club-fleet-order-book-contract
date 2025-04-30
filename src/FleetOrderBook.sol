@@ -269,7 +269,7 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
 
     /// @notice Handle a full fleet order.
     /// @param erc20Contract The address of the ERC20 contract.
-    function handleFullFleetOrder(address erc20Contract) internal {
+    function handleFullFleetOrder(address erc20Contract) internal returns (uint256) {
         //pay fee
         payFeeERC20(MAX_FLEET_FRACTION, erc20Contract);
         // id counter
@@ -282,6 +282,7 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         addFleetOrder(msg.sender, totalFleet);
         // mint fractions
         _mint(msg.sender, totalFleet, 1);  
+        return totalFleet;
     }
 
 
@@ -368,12 +369,13 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         if (erc20Contract == address(0)) revert InvalidTokenAddress();
         if (totalFleet + amount > maxFleetOrder) revert MaxFleetOrderExceeded();
 
-        uint256[] memory ids;
+        uint256[] memory ids = new uint256[](amount);
 
         for (uint256 i = 0; i < amount; i++) {
-            handleFullFleetOrder(erc20Contract);
-            ids[i] = totalFleet;
+            // handle full fleet order
+            ids[i] = handleFullFleetOrder(erc20Contract);
         }
+        
         emit FleetOrdered(ids, msg.sender, amount);
     }
 
@@ -389,55 +391,38 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         if (fractions >= MAX_FLEET_FRACTION) revert FractionExceedsMax();
 
 
-        // check fraction left of last token id
-        uint256 fractionsLeft = MAX_FLEET_FRACTION - totalFractions[lastFleetFractionID];
 
-        // if fractions Left is zero ie last fraction quota completely filled
-        if (fractionsLeft < 1) {
-            if (fleetOwned[msg.sender].length + 1 > MAX_FLEET_ORDER_PER_ADDRESS) revert MaxFleetOrderPerAddressExceeded();
-            if (totalFleet + 1 > maxFleetOrder) revert MaxFleetOrderExceeded();
-            handleInitialFractionsFleetOrder(fractions, erc20Contract);
-            emit FleetFractionOrdered(lastFleetFractionID, msg.sender, fractions);
-        } else {
-            // if requested fractions fit in remaining space
-            if (fractions <= fractionsLeft) {
-                handleAdditionalFractionsFleetOrder(fractions, erc20Contract);
-                emit FleetFractionOrdered(lastFleetFractionID, msg.sender, fractions);
-            }
-            // if requested fractions exceed remaining space, split into two orders
-            else {
-                if (fleetOwned[msg.sender].length + 1 > MAX_FLEET_ORDER_PER_ADDRESS) revert MaxFleetOrderPerAddressExceeded();
-                if (totalFleet + 1 > maxFleetOrder) revert MaxFleetOrderExceeded();
-                handleFractionsFleetOrderOverflow(fractions, erc20Contract, fractionsLeft);
-                emit FleetFractionOrdered(lastFleetFractionID, msg.sender, fractions);
-            }
-        }
-    /*    
         // if first mint ie no last fleetFraction ID we create one
         if (lastFleetFractionID < 1) {
             handleInitialFractionsFleetOrder(fractions, erc20Contract);
             emit FleetFractionOrdered(lastFleetFractionID, msg.sender, fractions);
         }
-
         // if not first mint
         else {
-            
+            // check fraction left of last token id
+            uint256 fractionsLeft = MAX_FLEET_FRACTION - totalFractions[lastFleetFractionID];
+
+            // if fractions Left is zero ie last fraction quota completely filled
+            if (fractionsLeft < 1) {
+                if (fleetOwned[msg.sender].length + 1 > MAX_FLEET_ORDER_PER_ADDRESS) revert MaxFleetOrderPerAddressExceeded();
+                if (totalFleet + 1 > maxFleetOrder) revert MaxFleetOrderExceeded();
+                handleInitialFractionsFleetOrder(fractions, erc20Contract);
+                emit FleetFractionOrdered(lastFleetFractionID, msg.sender, fractions);
+            } else {
+                // if requested fractions fit in remaining space
+                if (fractions <= fractionsLeft) {
+                    handleAdditionalFractionsFleetOrder(fractions, erc20Contract);
+                    emit FleetFractionOrdered(lastFleetFractionID, msg.sender, fractions);
+                }
+                // if requested fractions exceed remaining space, split into two orders
+                else {
+                    if (fleetOwned[msg.sender].length + 1 > MAX_FLEET_ORDER_PER_ADDRESS) revert MaxFleetOrderPerAddressExceeded();
+                    if (totalFleet + 1 > maxFleetOrder) revert MaxFleetOrderExceeded();
+                    handleFractionsFleetOrderOverflow(fractions, erc20Contract, fractionsLeft);
+                    emit FleetFractionOrdered(lastFleetFractionID, msg.sender, fractions);
+                }
+            }
         }
-    */
-    /* 
-        // if minting all fractions (full order)
-        if (fractions == MAX_FLEET_FRACTION) {
-        
-            if (fleetOwned[msg.sender].length + 1 > MAX_FLEET_ORDER_PER_ADDRESS) revert MaxFleetOrderPerAddressExceeded();
-            if (totalFleet + 1 > maxFleetOrder) revert MaxFleetOrderExceeded();
-            handleFullFleetOrder(erc20Contract);
-        
-        }
-        // if minting some fractions (partial order)
-        else {
-            
-        }
-    */
     }
 
 
