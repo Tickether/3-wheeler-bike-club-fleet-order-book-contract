@@ -62,6 +62,7 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     error TokenNotAccepted();
     error InsufficientBalance();
     error MaxFleetOrderExceeded();
+    error MaxOrderMultipleFleetExceeded();
     error MaxFleetOrderPerAddressExceeded();
     error InvalidFractionAmount();
     error FractionExceedsMax();
@@ -104,7 +105,7 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     /// @notice Maximum number of fleet orders that can be updated in bulk
     uint256 constant MAX_BULK_UPDATE = 50;
     /// @notice Maximum number of fleet orders that can be purchased in bulk
-    uint256 constant MAX_ORDER_BULK_FLEET = 6;
+    uint256 constant MAX_ORDER_MULTIPLE_FLEET = 3;
 
     /// @notice Mapping to store the IRL fulfillment state of each 3-wheeler fleet order
     mapping(uint256 => uint256) public fleetOrderStatus;
@@ -361,6 +362,7 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     /// @param erc20Contract The address of the ERC20 contract.
     function orderFleet(uint256 amount, address erc20Contract) external nonReentrant whenNotPaused {
         if (fleetOwned[msg.sender].length + amount > MAX_FLEET_ORDER_PER_ADDRESS) revert MaxFleetOrderPerAddressExceeded();
+        if (amount > MAX_ORDER_MULTIPLE_FLEET) revert MaxOrderMultipleFleetExceeded();
         if (amount < 1) revert InvalidAmount();
         if (!isTokenValid(erc20Contract)) revert TokenNotAccepted();
         if (erc20Contract == address(0)) revert InvalidTokenAddress();
