@@ -35,7 +35,7 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     
 
     /// @notice Event emitted when a fleet order is placed.
-    event FleetOrdered(uint256[] indexed ids, address indexed buyer, uint256 indexed amount);
+    event FleetOrdered(uint256[] ids, address indexed buyer, uint256 indexed amount);
     /// @notice Event emitted when a fleet fraction order is placed.
     event FleetFractionOrdered(uint256 indexed id, address indexed buyer, uint256 indexed fractions);
     /// @notice Event emitted when fleet sales are withdrawn.
