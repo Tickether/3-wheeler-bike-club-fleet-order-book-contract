@@ -329,7 +329,7 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     /// @param fractions The number of fractions to order.
     /// @param erc20Contract The address of the ERC20 contract.
     /// @param fractionsLeft The number of fractions left.
-    function handleFractionsFleetOrderOverflow(uint256 fractions, address erc20Contract, uint256 fractionsLeft) internal {
+    function handleFractionsFleetOrderOverflow(uint256 fractions, address erc20Contract, uint256 fractionsLeft) internal returns (uint256[] memory, uint256[] memory) {
         //pay fee
         payFeeERC20(fractions, erc20Contract);
 
@@ -338,13 +338,17 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
             addFleetOrder(msg.sender, lastFleetFractionID);
         }
         
+        uint256[] memory ids = new uint256[](2);
+        uint256[] memory fractionals = new uint256[](2);
         // check overflow value 
         uint256 overflowFractions = fractions - fractionsLeft;
 
         // mint what is posible then...
         totalFractions[lastFleetFractionID] = totalFractions[lastFleetFractionID] + fractionsLeft;
         _mint(msg.sender, lastFleetFractionID, fractionsLeft);
-        
+        ids[0] = lastFleetFractionID;
+        fractionals[0] = fractionsLeft;
+
         // id counter
         totalFleet++;
         lastFleetFractionID = totalFleet;
@@ -357,6 +361,10 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         addFleetOrder(msg.sender, lastFleetFractionID);
         //...mint overflow
         _mint(msg.sender, lastFleetFractionID, overflowFractions);
+        ids[1] = lastFleetFractionID;
+        fractionals[1] = overflowFractions;
+
+        return (ids, fractionals);
     }
     
 
@@ -420,8 +428,8 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
                 else {
                     if (fleetOwned[msg.sender].length + 1 > MAX_FLEET_ORDER_PER_ADDRESS) revert MaxFleetOrderPerAddressExceeded();
                     if (totalFleet + 1 > maxFleetOrder) revert MaxFleetOrderExceeded();
-                    handleFractionsFleetOrderOverflow(fractions, erc20Contract, fractionsLeft);
-                    emit FleetFractionOrdered(lastFleetFractionID, msg.sender, fractions);
+                    (uint256[] memory ids, uint256[] memory fractionals) = handleFractionsFleetOrderOverflow(fractions, erc20Contract, fractionsLeft);
+                    emit FleetFractionOverflowOrdered(ids, msg.sender, fractionals);
                 }
             }
         }
