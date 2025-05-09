@@ -115,6 +115,8 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     mapping(address => bool) public fleetERC20;
     /// @notice owner => list of fleet order IDs
     mapping(address => uint256[]) private fleetOwned;
+    /// @notice fleet order ID => list of owners
+    mapping(uint256 => address[]) public fleetOwners;
     /// @notice Total fractions of a token representing a 3-wheeler.
     mapping(uint256 => bool) public fleetFractioned;
     /// @notice Total fractions of a token representing a 3-wheeler.
