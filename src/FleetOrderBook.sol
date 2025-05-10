@@ -116,13 +116,15 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     /// @notice owner => list of fleet order IDs
     mapping(address => uint256[]) private fleetOwned;
     /// @notice fleet order ID => list of owners
-    mapping(uint256 => address[]) public fleetOwners;
+    mapping(uint256 => address[]) private fleetOwners;
     /// @notice Total fractions of a token representing a 3-wheeler.
     mapping(uint256 => bool) public fleetFractioned;
     /// @notice Total fractions of a token representing a 3-wheeler.
     mapping(uint256 => uint256) public totalFractions;
     /// @notice tracking fleet order index for each owner
     mapping(address => mapping(uint256 => uint256)) private fleetOwnedIndex;
+    /// @notice tracking owners index for each fleet order
+    mapping(uint256 => mapping(address => uint256)) private fleetOwnersIndex;
     
     /// @notice The contract level URI.
     string public contractURI;
@@ -270,6 +272,12 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         delete fleetOwnedIndex[sender][id];
     }
 
+
+    function addFleetOwner(uint256 id, address owner) internal {
+        address[] storage owners = fleetOwners[id];
+        owners.push(owner);
+        fleetOwnersIndex[id][owner] = owners.length - 1;
+    }
 
     /// @notice Handle a full fleet order.
     /// @param erc20Contract The address of the ERC20 contract.
@@ -448,7 +456,7 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
 
     /// @notice Get the fleet orders owned by an address.
     /// @param id The id of the fleet order.
-    /// @return The fleet orders owned by the address.
+    /// @return The addresses sharing the fleet id.
     function getFleetOwners(uint256 id) external view returns (address[] memory) {
         return fleetOwners[id];
     }
