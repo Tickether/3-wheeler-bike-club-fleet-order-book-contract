@@ -273,11 +273,37 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     }
 
 
+    /// @notice Add a fleet owner.
+    /// @param id The id of the fleet order to add.
+    /// @param owner The address of the owner.
     function addFleetOwner(uint256 id, address owner) internal {
         address[] storage owners = fleetOwners[id];
         owners.push(owner);
         fleetOwnersIndex[id][owner] = owners.length - 1;
     }
+
+
+    /// @notice Remove a fleet owner.
+    /// @param id The id of the fleet order to remove.
+    /// @param owner The address of the owner.
+    function removeFleetOwner(uint256 id, address owner) internal {
+        // Get the index of the orderId in the owner's fleetOwned array.
+        uint256 indexToRemove = fleetOwnersIndex[id][owner];
+        uint256 lastIndex = fleetOwners[id].length - 1;
+
+        // If the order being removed is not the last one, swap it with the last element.
+        if (indexToRemove != lastIndex) {
+            address lastOwner = fleetOwners[id][lastIndex];
+            fleetOwners[id][indexToRemove] = lastOwner;
+            // Update the index mapping for the swapped order.
+            fleetOwnersIndex[id][lastOwner] = indexToRemove;
+        }
+        
+        // Remove the last element and delete the mapping entry for the removed order.
+        fleetOwners[id].pop();
+        delete fleetOwnersIndex[id][owner];
+    }
+
 
     /// @notice Handle a full fleet order.
     /// @param erc20Contract The address of the ERC20 contract.
