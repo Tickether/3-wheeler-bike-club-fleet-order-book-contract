@@ -446,6 +446,14 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     }
 
 
+    /// @notice Get the fleet orders owned by an address.
+    /// @param id The id of the fleet order.
+    /// @return The fleet orders owned by the address.
+    function getFleetOwners(uint256 id) external view returns (address[] memory) {
+        return fleetOwners[id];
+    }
+
+
     /// @notice Check if a status value is valid
     /// @param status The status to check
     /// @return bool True if the status is valid
