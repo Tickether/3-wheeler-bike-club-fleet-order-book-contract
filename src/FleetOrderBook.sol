@@ -275,20 +275,20 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
 
     /// @notice Add a fleet owner.
     /// @param id The id of the fleet order to add.
-    /// @param owner The address of the owner.
-    function addFleetOwner(uint256 id, address owner) internal {
+    /// @param receiver The address of the owner.
+    function addFleetOwner(address receiver, uint256 id) internal {
         address[] storage owners = fleetOwners[id];
-        owners.push(owner);
-        fleetOwnersIndex[id][owner] = owners.length - 1;
+        owners.push(receiver);
+        fleetOwnersIndex[id][receiver] = owners.length - 1;
     }
 
 
     /// @notice Remove a fleet owner.
     /// @param id The id of the fleet order to remove.
-    /// @param owner The address of the owner.
-    function removeFleetOwner(uint256 id, address owner) internal {
+    /// @param receiver The address of the owner.
+    function removeFleetOwner(uint256 id, address receiver) internal {
         // Get the index of the orderId in the owner's fleetOwned array.
-        uint256 indexToRemove = fleetOwnersIndex[id][owner];
+        uint256 indexToRemove = fleetOwnersIndex[id][receiver];
         uint256 lastIndex = fleetOwners[id].length - 1;
 
         // If the order being removed is not the last one, swap it with the last element.
@@ -301,7 +301,7 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         
         // Remove the last element and delete the mapping entry for the removed order.
         fleetOwners[id].pop();
-        delete fleetOwnersIndex[id][owner];
+        delete fleetOwnersIndex[id][receiver];
     }
 
 
@@ -616,11 +616,13 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         balanceOf[msg.sender][id] -= amount;
         if (balanceOf[msg.sender][id] == 0) {
             removeFleetOrder(id, msg.sender);
+            removeFleetOwner(id, msg.sender);
         }
 
         balanceOf[receiver][id] += amount;
         if (!isFleetOwned(receiver, id)) {
             addFleetOrder(receiver, id);
+            addFleetOwner(receiver, id);
         }
 
         emit Transfer(msg.sender, msg.sender, receiver, id, amount);
@@ -653,11 +655,13 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         balanceOf[sender][id] -= amount;
         if (balanceOf[sender][id] == 0) {
             removeFleetOrder(id, sender);
+            removeFleetOwner(id, sender);
         }
 
         balanceOf[receiver][id] += amount;
         if (!isFleetOwned(receiver, id)) {
             addFleetOrder(receiver, id);
+            addFleetOwner(receiver, id);
         }
         
         emit Transfer(msg.sender, sender, receiver, id, amount);
