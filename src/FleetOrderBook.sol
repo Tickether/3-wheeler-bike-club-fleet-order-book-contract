@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
+
 /// @dev Interface imports
 import { IERC6909TokenSupply } from "./interfaces/IERC6909TokenSupply.sol";
 import { IERC6909ContentURI } from "./interfaces/IERC6909ContentURI.sol";
@@ -15,13 +16,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-/// @dev OpenZeppelin access imports
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
-import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-
-
-// Upgradeable imports
+/// @dev OpenZeppelin Upgradeable imports
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -35,10 +30,65 @@ import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/
 /// @author Geeloko
 
 
-contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Ownable, Pausable, ReentrancyGuard {
+
+contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Initializable, UUPSUpgradeable, OwnableUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable {
     using SafeERC20 for IERC20;
     using Strings for uint256;
     
+
+    /// @notice Total supply of a ids representing fleet orders.
+    uint256 public totalFleet;
+    /// @notice Last fleet fraction ID.
+    uint256 public lastFleetFractionID;    
+    /// @notice Maximum number of fleet orders.
+    uint256 public maxFleetOrder;
+    /// @notice  Price per fleet fraction  in USD.
+    uint256 public fleetFractionPrice;
+
+    
+    /// @notice State constants - each state is a power of 2 (bit position)
+    uint256 constant INIT = 1 << 0;         // 00000001
+    uint256 constant CREATED = 1 << 1;      // 00000010
+    uint256 constant SHIPPED = 1 << 2;      // 00000100
+    uint256 constant ARRIVED = 1 << 3;      // 00001000
+    uint256 constant CLEARED = 1 << 4;      // 00010000
+    uint256 constant REGISTERED = 1 << 5;   // 00100000
+    uint256 constant ASSIGNED = 1 << 6;     // 01000000
+    uint256 constant TRANSFERRED = 1 << 7;  // 10000000
+
+
+    /// @notice Minimum number of fractions per fleet order.
+    uint256 public constant MIN_FLEET_FRACTION = 1;
+    /// @notice Maximum number of fractions per fleet order.
+    uint256 public constant MAX_FLEET_FRACTION = 50;
+     /// @notice Maximum number of fleet orders per address.
+    uint256 public constant MAX_FLEET_ORDER_PER_ADDRESS = 100;
+    /// @notice Maximum number of fleet orders that can be updated in bulk
+    uint256 constant MAX_BULK_UPDATE = 50;
+    /// @notice Maximum number of fleet orders that can be purchased in bulk
+    uint256 constant MAX_ORDER_MULTIPLE_FLEET = 3;
+    
+
+    /// @notice Mapping to store the IRL fulfillment state of each 3-wheeler fleet order
+    mapping(uint256 => uint256) public fleetOrderStatus;
+    /// @notice check if ERC20 is accepted for fleet orders
+    mapping(address => bool) public fleetERC20;
+    /// @notice owner => list of fleet order IDs
+    mapping(address => uint256[]) private fleetOwned;
+    /// @notice fleet order ID => list of owners
+    mapping(uint256 => address[]) private fleetOwners;
+    /// @notice Total fractions of a token representing a 3-wheeler.
+    mapping(uint256 => bool) public fleetFractioned;
+    /// @notice Total fractions of a token representing a 3-wheeler.
+    mapping(uint256 => uint256) public totalFractions;
+    /// @notice tracking fleet order index for each owner
+    mapping(address => mapping(uint256 => uint256)) private fleetOwnedIndex;
+    /// @notice tracking owners index for each fleet order
+    mapping(uint256 => mapping(address => uint256)) private fleetOwnersIndex;
+    
+    /// @notice The contract level URI.
+    string public contractURI;
+
 
     /// @notice Event emitted when a fleet order is placed.
     event FleetOrdered(uint256[] ids, address indexed buyer, uint256 indexed amount);
@@ -82,62 +132,18 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     error TokenAlreadyAdded();
     error TokenNotAdded();
     
-    constructor() Ownable(msg.sender) { }
-    
-    /// @notice Total supply of a ids representing fleet orders.
-    uint256 public totalFleet;
-    /// @notice Last fleet fraction ID.
-    uint256 public lastFleetFractionID;    
-    /// @notice Maximum number of fleet orders.
-    uint256 public maxFleetOrder;
-    /// @notice  Price per fleet fraction  in USD.
-    uint256 public fleetFractionPrice;
+    /// @notice Initializer (replaces constructor).
+    function initialize(string memory _contractURI, uint256 _fleetFractionPrice, uint256 _maxFleetOrder) public initializer {
+        __Ownable_init(msg.sender);
+        __Pausable_init();
+        __ReentrancyGuard_init();
+        contractURI = _contractURI;
+        fleetFractionPrice = _fleetFractionPrice;
+        maxFleetOrder = _maxFleetOrder;
+    }
 
-    
-
-    /// @notice State constants - each state is a power of 2 (bit position)
-    uint256 constant INIT = 1 << 0;         // 00000001
-    uint256 constant CREATED = 1 << 1;      // 00000010
-    uint256 constant SHIPPED = 1 << 2;      // 00000100
-    uint256 constant ARRIVED = 1 << 3;      // 00001000
-    uint256 constant CLEARED = 1 << 4;      // 00010000
-    uint256 constant REGISTERED = 1 << 5;   // 00100000
-    uint256 constant ASSIGNED = 1 << 6;     // 01000000
-    uint256 constant TRANSFERRED = 1 << 7;  // 10000000
-
-
-    /// @notice Minimum number of fractions per fleet order.
-    uint256 public constant MIN_FLEET_FRACTION = 1;
-    /// @notice Maximum number of fractions per fleet order.
-    uint256 public constant MAX_FLEET_FRACTION = 50;
-     /// @notice Maximum number of fleet orders per address.
-    uint256 public constant MAX_FLEET_ORDER_PER_ADDRESS = 100;
-    /// @notice Maximum number of fleet orders that can be updated in bulk
-    uint256 constant MAX_BULK_UPDATE = 50;
-    /// @notice Maximum number of fleet orders that can be purchased in bulk
-    uint256 constant MAX_ORDER_MULTIPLE_FLEET = 3;
-    
-
-    /// @notice Mapping to store the IRL fulfillment state of each 3-wheeler fleet order
-    mapping(uint256 => uint256) public fleetOrderStatus;
-    /// @notice check if ERC20 is accepted for fleet orders
-    mapping(address => bool) public fleetERC20;
-    /// @notice owner => list of fleet order IDs
-    mapping(address => uint256[]) private fleetOwned;
-    /// @notice fleet order ID => list of owners
-    mapping(uint256 => address[]) private fleetOwners;
-    /// @notice Total fractions of a token representing a 3-wheeler.
-    mapping(uint256 => bool) public fleetFractioned;
-    /// @notice Total fractions of a token representing a 3-wheeler.
-    mapping(uint256 => uint256) public totalFractions;
-    /// @notice tracking fleet order index for each owner
-    mapping(address => mapping(uint256 => uint256)) private fleetOwnedIndex;
-    /// @notice tracking owners index for each fleet order
-    mapping(uint256 => mapping(address => uint256)) private fleetOwnersIndex;
-    
-    /// @notice The contract level URI.
-    string public contractURI;
-    
+    /// @notice Authorize UUPS upgrades only by owner.
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 
 
     /// @notice Pause the contract 
