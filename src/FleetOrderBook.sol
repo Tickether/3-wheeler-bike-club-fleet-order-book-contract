@@ -4,7 +4,6 @@ pragma solidity ^0.8.13;
 
 /// @dev Interface imports
 import { IERC6909TokenSupply } from "./interfaces/IERC6909TokenSupply.sol";
-import { IERC6909ContentURI } from "./interfaces/IERC6909ContentURI.sol";
 
 /// @dev Solmate imports
 import { ERC6909 } from "solmate/tokens/ERC6909.sol";
@@ -31,7 +30,7 @@ import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/
 
 
 
-contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Initializable, UUPSUpgradeable, OwnableUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable {
+contract FleetOrderBook is IERC6909TokenSupply, ERC6909, Initializable, UUPSUpgradeable, OwnableUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable {
     using SafeERC20 for IERC20;
     using Strings for uint256;
     
@@ -588,11 +587,14 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Ini
         return true;
     }
 
-
+    /// @notice Set the status of a fleet order
+    /// @param id The id of the fleet order to set the status for
+    /// @param status The new status to set
     function setFleetOrderStatus(uint256 id, uint256 status) internal {
         fleetOrderStatus[id] = status;
         emit FleetOrderStatusChanged(id, status);
     }
+
 
     /// @notice Set the status of multiple fleet orders
     /// @param ids The ids of the fleet orders to set the status for
@@ -612,6 +614,7 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Ini
             setFleetOrderStatus(ids[i], status);
         }
     }
+
 
     /// @notice Get the current status of a fleet order
     /// @param id The id of the fleet order to get the status for
@@ -633,17 +636,6 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Ini
         revert InvalidStatus();
     }
     
-
-    /// @notice The URI for each id.
-    /// @param id The id of the fleet order to get the URI for.
-    /// @return The URI of the token.
-    function tokenURI(uint256 id) public view override returns (string memory) {
-        if (id == 0) revert InvalidId();
-        if (id > totalFleet) revert IdDoesNotExist();
-        string memory baseURI = contractURI;
-        return bytes(baseURI).length > 0 ? string.concat(baseURI, id.toString()) : "";
-    }
-
 
     /// @notice Transfer a fleet order.
     /// @param receiver The address of the receiver.
