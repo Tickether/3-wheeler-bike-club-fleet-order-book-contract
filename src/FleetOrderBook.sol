@@ -223,6 +223,7 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
 
 
     /// @notice Check if a fleet order is owned by an address.
+    /// @param owner The address of the owner.
     /// @param id The id of the fleet order to check.
     /// @return bool True if the fleet order is owned by the address, false otherwise.
     function isFleetOwned(address owner, uint256 id) internal view returns (bool) {
@@ -239,6 +240,23 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         return fleetOwned[owner][index] == id;
     }
 
+    /// @notice Check if a fleet order is owned by an address.
+    /// @param owner The address of the owner.
+    /// @param id The id of the fleet order to check.
+    /// @return bool True if the address is fleet owner false otherwise.
+    function isAddressFleetOwner(address owner, uint256 id) internal view returns (bool){
+        // If no orders exist for msg.sender, return false immediately.
+        if (fleetOwners[id].length == 0) return false;
+        
+        // Retrieve the stored index for the order id.
+        uint256 index = fleetOwnersIndex[id][owner];
+
+        // If the index is out of range, then id is not owned.
+        if (index >= fleetOwners[id].length) return false;
+        
+        // Check that the order at that index matches the given id.
+        return fleetOwners[id][index] == owner;
+    }
 
 
     /// @notice Add a fleet order to the owner.
