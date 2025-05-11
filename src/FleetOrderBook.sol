@@ -339,6 +339,8 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         emit FleetOrderStatusChanged(totalFleet, INIT);
         // add fleet order ID to fleetOwned
         addFleetOrder(msg.sender, totalFleet);
+        // add fleet owner
+        addFleetOwner(msg.sender, totalFleet);
         // mint fractions
         _mint(msg.sender, totalFleet, 1);  
         return totalFleet;
@@ -361,6 +363,8 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         emit FleetOrderStatusChanged(lastFleetFractionID, INIT);
         // add fleet order ID to fleetOwned
         addFleetOrder(msg.sender, lastFleetFractionID);
+        // add fleet owner
+        addFleetOwner(msg.sender, lastFleetFractionID);
         // mint fractions
         _mint(msg.sender, lastFleetFractionID, fractions);
     }
@@ -375,6 +379,10 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         // add fleet order ID to fleetOwned
         if (!isFleetOwned(msg.sender, lastFleetFractionID)) {
             addFleetOrder(msg.sender, lastFleetFractionID);
+        }
+        // add fleet owner if not already an owner
+        if (!isAddressFleetOwner(msg.sender, lastFleetFractionID)) {
+            addFleetOwner(msg.sender, lastFleetFractionID);
         }
         // mint fractions
         totalFractions[lastFleetFractionID] = totalFractions[lastFleetFractionID] + fractions;
@@ -393,6 +401,10 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         // add fleet order ID to fleetOwned
         if (!isFleetOwned(msg.sender, lastFleetFractionID)) {
             addFleetOrder(msg.sender, lastFleetFractionID);
+        }
+        // add fleet owner if not already an owner
+        if (!isAddressFleetOwner(msg.sender, lastFleetFractionID)) {
+            addFleetOwner(msg.sender, lastFleetFractionID);
         }
         
         uint256[] memory ids = new uint256[](2);
@@ -416,6 +428,8 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         emit FleetOrderStatusChanged(lastFleetFractionID, INIT);
         // add fleet order ID to fleetOwned
         addFleetOrder(msg.sender, lastFleetFractionID);
+        // add fleet owner
+        addFleetOwner(msg.sender, lastFleetFractionID);
         //...mint overflow
         _mint(msg.sender, lastFleetFractionID, overflowFractions);
         ids[1] = lastFleetFractionID;
