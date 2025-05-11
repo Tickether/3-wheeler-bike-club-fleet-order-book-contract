@@ -84,10 +84,7 @@ contract FleetOrderBook is IERC6909TokenSupply, ERC6909, Initializable, UUPSUpgr
     mapping(address => mapping(uint256 => uint256)) private fleetOwnedIndex;
     /// @notice tracking owners index for each fleet order
     mapping(uint256 => mapping(address => uint256)) private fleetOwnersIndex;
-    
-    /// @notice The contract level URI.
-    string public contractURI;
-
+  
 
     /// @notice Event emitted when a fleet order is placed.
     event FleetOrdered(uint256[] ids, address indexed buyer, uint256 indexed amount);
@@ -107,6 +104,7 @@ contract FleetOrderBook is IERC6909TokenSupply, ERC6909, Initializable, UUPSUpgr
     event MaxFleetOrderChanged(uint256 oldMax, uint256 newMax);
     /// @notice Event emitted when a fleet order status changes.
     event FleetOrderStatusChanged(uint256 indexed id, uint256 status);
+
 
     /// @notice Error messages
     error InvalidStatus();
@@ -131,18 +129,22 @@ contract FleetOrderBook is IERC6909TokenSupply, ERC6909, Initializable, UUPSUpgr
     error TokenAlreadyAdded();
     error TokenNotAdded();
     
+    
     /// @notice Initializer (replaces constructor).
-    function initialize(string memory _contractURI, uint256 _fleetFractionPrice, uint256 _maxFleetOrder) public initializer {
+    /// @param _fleetFractionPrice The price of a fleet fraction.
+    /// @param _maxFleetOrder The maximum number of fleet orders.
+    function initialize(uint256 _fleetFractionPrice, uint256 _maxFleetOrder) public initializer {
         __Ownable_init(msg.sender);
         __Pausable_init();
         __ReentrancyGuard_init();
-        contractURI = _contractURI;
         fleetFractionPrice = _fleetFractionPrice;
         maxFleetOrder = _maxFleetOrder;
     }
 
+
     /// @notice Authorize UUPS upgrades only by owner.
-    function _authorizeUpgrade(address) internal override onlyOwner {}
+    /// @param newImplementation The address of the new implementation.
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
 
     /// @notice Pause the contract 
@@ -155,13 +157,6 @@ contract FleetOrderBook is IERC6909TokenSupply, ERC6909, Initializable, UUPSUpgr
     function unpause() external onlyOwner {
         _unpause();
     }
-
-
-    /// @notice Set the contract level URI.
-    /// @param _contractURI The URI to set.
-    function setContractURI(string memory _contractURI) external onlyOwner {
-        contractURI = _contractURI;
-    }   
 
 
     /// @notice Set the fleet fraction price.
@@ -253,6 +248,7 @@ contract FleetOrderBook is IERC6909TokenSupply, ERC6909, Initializable, UUPSUpgr
         // Check that the order at that index matches the given id.
         return fleetOwned[owner][index] == id;
     }
+
 
     /// @notice Check if a fleet order is owned by an address.
     /// @param owner The address of the owner.
@@ -542,6 +538,7 @@ contract FleetOrderBook is IERC6909TokenSupply, ERC6909, Initializable, UUPSUpgr
         return status > 0 && status <= TRANSFERRED && (status & (status - 1)) == 0;
     }
 
+
     /// @notice Check if a state transition is valid
     /// @param currentStatus The current status
     /// @param newStatus The new status to transition to
@@ -557,6 +554,7 @@ contract FleetOrderBook is IERC6909TokenSupply, ERC6909, Initializable, UUPSUpgr
         return false;
     }
 
+
     /// @notice Check for duplicate IDs in an array
     /// @param ids The array of IDs to check
     /// @return bool True if there are no duplicates
@@ -568,6 +566,7 @@ contract FleetOrderBook is IERC6909TokenSupply, ERC6909, Initializable, UUPSUpgr
         }
         return true;
     }
+
 
     /// @notice Validate all status transitions in bulk
     /// @param ids The array of IDs to validate
@@ -586,6 +585,7 @@ contract FleetOrderBook is IERC6909TokenSupply, ERC6909, Initializable, UUPSUpgr
         }
         return true;
     }
+
 
     /// @notice Set the status of a fleet order
     /// @param id The id of the fleet order to set the status for
