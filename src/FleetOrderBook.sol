@@ -640,6 +640,8 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         balanceOf[receiver][id] += amount;
         if (!isFleetOwned(receiver, id)) {
             addFleetOrder(receiver, id);
+        }
+        if (!isAddressFleetOwner(receiver, id)){
             addFleetOwner(receiver, id);
         }
 
@@ -679,6 +681,8 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         balanceOf[receiver][id] += amount;
         if (!isFleetOwned(receiver, id)) {
             addFleetOrder(receiver, id);
+        }
+        if (!isAddressFleetOwner(receiver, id)){
             addFleetOwner(receiver, id);
         }
         
