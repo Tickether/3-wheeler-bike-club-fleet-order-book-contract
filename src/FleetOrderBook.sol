@@ -87,12 +87,7 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     /// @notice  Price per fleet fraction  in USD.
     uint256 public fleetFractionPrice;
 
-    /// @notice Minimum number of fractions per fleet order.
-    uint256 public immutable MIN_FLEET_FRACTION = 1;
-    /// @notice Maximum number of fractions per fleet order.
-    uint256 public immutable MAX_FLEET_FRACTION = 50;
-     /// @notice Maximum number of fleet orders per address.
-    uint256 public immutable MAX_FLEET_ORDER_PER_ADDRESS = 100;
+    
 
     /// @notice State constants - each state is a power of 2 (bit position)
     uint256 constant INIT = 1 << 0;         // 00000001
@@ -104,10 +99,18 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     uint256 constant ASSIGNED = 1 << 6;     // 01000000
     uint256 constant TRANSFERRED = 1 << 7;  // 10000000
 
+
+    /// @notice Minimum number of fractions per fleet order.
+    uint256 public constant MIN_FLEET_FRACTION = 1;
+    /// @notice Maximum number of fractions per fleet order.
+    uint256 public constant MAX_FLEET_FRACTION = 50;
+     /// @notice Maximum number of fleet orders per address.
+    uint256 public constant MAX_FLEET_ORDER_PER_ADDRESS = 100;
     /// @notice Maximum number of fleet orders that can be updated in bulk
     uint256 constant MAX_BULK_UPDATE = 50;
     /// @notice Maximum number of fleet orders that can be purchased in bulk
     uint256 constant MAX_ORDER_MULTIPLE_FLEET = 3;
+    
 
     /// @notice Mapping to store the IRL fulfillment state of each 3-wheeler fleet order
     mapping(uint256 => uint256) public fleetOrderStatus;
