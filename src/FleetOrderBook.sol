@@ -87,12 +87,7 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     /// @notice  Price per fleet fraction  in USD.
     uint256 public fleetFractionPrice;
 
-    /// @notice Minimum number of fractions per fleet order.
-    uint256 public immutable MIN_FLEET_FRACTION = 1;
-    /// @notice Maximum number of fractions per fleet order.
-    uint256 public immutable MAX_FLEET_FRACTION = 50;
-     /// @notice Maximum number of fleet orders per address.
-    uint256 public immutable MAX_FLEET_ORDER_PER_ADDRESS = 100;
+    
 
     /// @notice State constants - each state is a power of 2 (bit position)
     uint256 constant INIT = 1 << 0;         // 00000001
@@ -104,10 +99,18 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     uint256 constant ASSIGNED = 1 << 6;     // 01000000
     uint256 constant TRANSFERRED = 1 << 7;  // 10000000
 
+
+    /// @notice Minimum number of fractions per fleet order.
+    uint256 public constant MIN_FLEET_FRACTION = 1;
+    /// @notice Maximum number of fractions per fleet order.
+    uint256 public constant MAX_FLEET_FRACTION = 50;
+     /// @notice Maximum number of fleet orders per address.
+    uint256 public constant MAX_FLEET_ORDER_PER_ADDRESS = 100;
     /// @notice Maximum number of fleet orders that can be updated in bulk
     uint256 constant MAX_BULK_UPDATE = 50;
     /// @notice Maximum number of fleet orders that can be purchased in bulk
     uint256 constant MAX_ORDER_MULTIPLE_FLEET = 3;
+    
 
     /// @notice Mapping to store the IRL fulfillment state of each 3-wheeler fleet order
     mapping(uint256 => uint256) public fleetOrderStatus;
@@ -116,13 +119,15 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     /// @notice owner => list of fleet order IDs
     mapping(address => uint256[]) private fleetOwned;
     /// @notice fleet order ID => list of owners
-    mapping(uint256 => address[]) public fleetOwners;
+    mapping(uint256 => address[]) private fleetOwners;
     /// @notice Total fractions of a token representing a 3-wheeler.
     mapping(uint256 => bool) public fleetFractioned;
     /// @notice Total fractions of a token representing a 3-wheeler.
     mapping(uint256 => uint256) public totalFractions;
     /// @notice tracking fleet order index for each owner
     mapping(address => mapping(uint256 => uint256)) private fleetOwnedIndex;
+    /// @notice tracking owners index for each fleet order
+    mapping(uint256 => mapping(address => uint256)) private fleetOwnersIndex;
     
     /// @notice The contract level URI.
     string public contractURI;
@@ -221,6 +226,7 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
 
 
     /// @notice Check if a fleet order is owned by an address.
+    /// @param owner The address of the owner.
     /// @param id The id of the fleet order to check.
     /// @return bool True if the fleet order is owned by the address, false otherwise.
     function isFleetOwned(address owner, uint256 id) internal view returns (bool) {
@@ -237,6 +243,23 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         return fleetOwned[owner][index] == id;
     }
 
+    /// @notice Check if a fleet order is owned by an address.
+    /// @param owner The address of the owner.
+    /// @param id The id of the fleet order to check.
+    /// @return bool True if the address is fleet owner false otherwise.
+    function isAddressFleetOwner(address owner, uint256 id) internal view returns (bool){
+        // If no orders exist for msg.sender, return false immediately.
+        if (fleetOwners[id].length == 0) return false;
+        
+        // Retrieve the stored index for the order id.
+        uint256 index = fleetOwnersIndex[id][owner];
+
+        // If the index is out of range, then id is not owned.
+        if (index >= fleetOwners[id].length) return false;
+        
+        // Check that the order at that index matches the given id.
+        return fleetOwners[id][index] == owner;
+    }
 
 
     /// @notice Add a fleet order to the owner.
@@ -271,6 +294,38 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     }
 
 
+    /// @notice Add a fleet owner.
+    /// @param id The id of the fleet order to add.
+    /// @param receiver The address of the owner.
+    function addFleetOwner(address receiver, uint256 id) internal {
+        address[] storage owners = fleetOwners[id];
+        owners.push(receiver);
+        fleetOwnersIndex[id][receiver] = owners.length - 1;
+    }
+
+
+    /// @notice Remove a fleet owner.
+    /// @param id The id of the fleet order to remove.
+    /// @param receiver The address of the owner.
+    function removeFleetOwner(uint256 id, address receiver) internal {
+        // Get the index of the orderId in the owner's fleetOwned array.
+        uint256 indexToRemove = fleetOwnersIndex[id][receiver];
+        uint256 lastIndex = fleetOwners[id].length - 1;
+
+        // If the order being removed is not the last one, swap it with the last element.
+        if (indexToRemove != lastIndex) {
+            address lastOwner = fleetOwners[id][lastIndex];
+            fleetOwners[id][indexToRemove] = lastOwner;
+            // Update the index mapping for the swapped order.
+            fleetOwnersIndex[id][lastOwner] = indexToRemove;
+        }
+        
+        // Remove the last element and delete the mapping entry for the removed order.
+        fleetOwners[id].pop();
+        delete fleetOwnersIndex[id][receiver];
+    }
+
+
     /// @notice Handle a full fleet order.
     /// @param erc20Contract The address of the ERC20 contract.
     function handleFullFleetOrder(address erc20Contract) internal returns (uint256) {
@@ -284,6 +339,8 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         emit FleetOrderStatusChanged(totalFleet, INIT);
         // add fleet order ID to fleetOwned
         addFleetOrder(msg.sender, totalFleet);
+        // add fleet owner
+        addFleetOwner(msg.sender, totalFleet);
         // mint fractions
         _mint(msg.sender, totalFleet, 1);  
         return totalFleet;
@@ -306,6 +363,8 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         emit FleetOrderStatusChanged(lastFleetFractionID, INIT);
         // add fleet order ID to fleetOwned
         addFleetOrder(msg.sender, lastFleetFractionID);
+        // add fleet owner
+        addFleetOwner(msg.sender, lastFleetFractionID);
         // mint fractions
         _mint(msg.sender, lastFleetFractionID, fractions);
     }
@@ -320,6 +379,10 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         // add fleet order ID to fleetOwned
         if (!isFleetOwned(msg.sender, lastFleetFractionID)) {
             addFleetOrder(msg.sender, lastFleetFractionID);
+        }
+        // add fleet owner if not already an owner
+        if (!isAddressFleetOwner(msg.sender, lastFleetFractionID)) {
+            addFleetOwner(msg.sender, lastFleetFractionID);
         }
         // mint fractions
         totalFractions[lastFleetFractionID] = totalFractions[lastFleetFractionID] + fractions;
@@ -338,6 +401,10 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         // add fleet order ID to fleetOwned
         if (!isFleetOwned(msg.sender, lastFleetFractionID)) {
             addFleetOrder(msg.sender, lastFleetFractionID);
+        }
+        // add fleet owner if not already an owner
+        if (!isAddressFleetOwner(msg.sender, lastFleetFractionID)) {
+            addFleetOwner(msg.sender, lastFleetFractionID);
         }
         
         uint256[] memory ids = new uint256[](2);
@@ -361,6 +428,8 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         emit FleetOrderStatusChanged(lastFleetFractionID, INIT);
         // add fleet order ID to fleetOwned
         addFleetOrder(msg.sender, lastFleetFractionID);
+        // add fleet owner
+        addFleetOwner(msg.sender, lastFleetFractionID);
         //...mint overflow
         _mint(msg.sender, lastFleetFractionID, overflowFractions);
         ids[1] = lastFleetFractionID;
@@ -443,6 +512,14 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     /// @return The fleet orders owned by the address.
     function getFleetOwned(address owner) external view returns (uint256[] memory) {
         return fleetOwned[owner];
+    }
+
+
+    /// @notice Get the fleet orders owned by an address.
+    /// @param id The id of the fleet order.
+    /// @return The addresses sharing the fleet id.
+    function getFleetOwners(uint256 id) external view returns (address[] memory) {
+        return fleetOwners[id];
     }
 
 
@@ -574,11 +651,15 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         balanceOf[msg.sender][id] -= amount;
         if (balanceOf[msg.sender][id] == 0) {
             removeFleetOrder(id, msg.sender);
+            removeFleetOwner(id, msg.sender);
         }
 
         balanceOf[receiver][id] += amount;
         if (!isFleetOwned(receiver, id)) {
             addFleetOrder(receiver, id);
+        }
+        if (!isAddressFleetOwner(receiver, id)){
+            addFleetOwner(receiver, id);
         }
 
         emit Transfer(msg.sender, msg.sender, receiver, id, amount);
@@ -611,11 +692,15 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         balanceOf[sender][id] -= amount;
         if (balanceOf[sender][id] == 0) {
             removeFleetOrder(id, sender);
+            removeFleetOwner(id, sender);
         }
 
         balanceOf[receiver][id] += amount;
         if (!isFleetOwned(receiver, id)) {
             addFleetOrder(receiver, id);
+        }
+        if (!isAddressFleetOwner(receiver, id)){
+            addFleetOwner(receiver, id);
         }
         
         emit Transfer(msg.sender, sender, receiver, id, amount);
