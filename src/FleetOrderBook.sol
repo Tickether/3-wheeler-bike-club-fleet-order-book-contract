@@ -30,7 +30,7 @@ import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/
 
 
 
-contract FleetOrderBook is IERC6909TokenSupply, ERC6909, Initializable, UUPSUpgradeable, OwnableUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable {
+contract FleetOrderBook is IERC6909TokenSupply, ERC6909, Initializable, OwnableUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable, UUPSUpgradeable {
     using SafeERC20 for IERC20;
     using Strings for uint256;
     
@@ -128,17 +128,20 @@ contract FleetOrderBook is IERC6909TokenSupply, ERC6909, Initializable, UUPSUpgr
     error MaxFleetOrderNotIncreased();
     error TokenAlreadyAdded();
     error TokenNotAdded();
-    
+
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     
     /// @notice Initializer (replaces constructor).
-    /// @param _fleetFractionPrice The price of a fleet fraction.
-    /// @param _maxFleetOrder The maximum number of fleet orders.
-    function initialize(uint256 _fleetFractionPrice, uint256 _maxFleetOrder) public initializer {
+    function initialize() public initializer {
         __Ownable_init(msg.sender);
         __Pausable_init();
         __ReentrancyGuard_init();
-        fleetFractionPrice = _fleetFractionPrice;
-        maxFleetOrder = _maxFleetOrder;
+        __UUPSUpgradeable_init();
     }
 
 
