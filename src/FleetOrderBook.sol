@@ -1,26 +1,26 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-import { IERC6909TokenSupply } from "./interfaces/IERC6909TokenSupply.sol";
-import { IERC6909ContentURI } from "./interfaces/IERC6909ContentURI.sol";
 
+/// @dev Interface imports
+import { IERC6909TokenSupply } from "./interfaces/IERC6909TokenSupply.sol";
+
+/// @dev Solmate imports
 import { ERC6909 } from "solmate/tokens/ERC6909.sol";
 //import { ERC6909 } from  "https://github.com/transmissions11/solmate/blob/main/src/tokens/ERC6909.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-//import { Ownable } from "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/Ownable.sol";
-import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
-//import { Pausable } from "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/Pausable.sol";
-import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-//import { ReentrancyGuard } from "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/ReentrancyGuard.sol";
 
+/// @dev OpenZeppelin utils imports
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
-//import { Strings } from "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/Strings.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-//import { IERC20 } from "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-//import { IERC20Metadata } from "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-//import { SafeERC20 } from "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/utils/SafeERC20.sol";
+
+/// @dev OpenZeppelin Upgradeable imports
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 
 
 
@@ -29,55 +29,12 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 /// @author Geeloko
 
 
-contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Ownable, Pausable, ReentrancyGuard {
+
+contract FleetOrderBook is IERC6909TokenSupply, ERC6909, Initializable, OwnableUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable, UUPSUpgradeable {
     using SafeERC20 for IERC20;
     using Strings for uint256;
     
 
-    /// @notice Event emitted when a fleet order is placed.
-    event FleetOrdered(uint256[] ids, address indexed buyer, uint256 indexed amount);
-    /// @notice Event emitted when a fleet fraction order is placed.
-    event FleetFractionOrdered(uint256 indexed id, address indexed buyer, uint256 indexed fractions);
-    /// @notice Event emitted when a fleet fraction overflow order is placed.
-    event FleetFractionOverflowOrdered(uint256[] ids, address indexed buyer, uint256[] fractions);
-    /// @notice Event emitted when fleet sales are withdrawn.
-    event FleetSalesWithdrawn(address indexed token, address indexed to, uint256 amount);
-    /// @notice Event emitted when an ERC20 token is added to the fleet.
-    event ERC20Added(address indexed token);
-    /// @notice Event emitted when an ERC20 token is removed from the fleet.
-    event ERC20Removed(address indexed token);
-    /// @notice Event emitted when the fleet fraction price is changed.
-    event FleetFractionPriceChanged(uint256 oldPrice, uint256 newPrice);
-    /// @notice Event emitted when the maximum fleet orders is changed.
-    event MaxFleetOrderChanged(uint256 oldMax, uint256 newMax);
-    /// @notice Event emitted when a fleet order status changes.
-    event FleetOrderStatusChanged(uint256 indexed id, uint256 status);
-
-    /// @notice Error messages
-    error InvalidStatus();
-    error InvalidStateTransition();
-    error DuplicateIds();
-    error BulkUpdateLimitExceeded();
-    error InvalidId();
-    error IdDoesNotExist();
-    error InvalidTokenAddress();
-    error TokenNotAccepted();
-    error InsufficientBalance();
-    error MaxFleetOrderExceeded();
-    error MaxOrderMultipleFleetExceeded();
-    error MaxFleetOrderPerAddressExceeded();
-    error InvalidFractionAmount();
-    error FractionExceedsMax();
-    error NotEnoughTokens();
-    error InvalidAmount();
-    error NoNativeTokenAccepted();
-    error InvalidPrice();
-    error MaxFleetOrderNotIncreased();
-    error TokenAlreadyAdded();
-    error TokenNotAdded();
-    
-    constructor() Ownable(msg.sender) { }
-    
     /// @notice Total supply of a ids representing fleet orders.
     uint256 public totalFleet;
     /// @notice Last fleet fraction ID.
@@ -88,7 +45,6 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     uint256 public fleetFractionPrice;
 
     
-
     /// @notice State constants - each state is a power of 2 (bit position)
     uint256 constant INIT = 1 << 0;         // 00000001
     uint256 constant CREATED = 1 << 1;      // 00000010
@@ -128,10 +84,70 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     mapping(address => mapping(uint256 => uint256)) private fleetOwnedIndex;
     /// @notice tracking owners index for each fleet order
     mapping(uint256 => mapping(address => uint256)) private fleetOwnersIndex;
+  
+
+    /// @notice Event emitted when a fleet order is placed.
+    event FleetOrdered(uint256[] ids, address indexed buyer, uint256 indexed amount);
+    /// @notice Event emitted when a fleet fraction order is placed.
+    event FleetFractionOrdered(uint256 indexed id, address indexed buyer, uint256 indexed fractions);
+    /// @notice Event emitted when a fleet fraction overflow order is placed.
+    event FleetFractionOverflowOrdered(uint256[] ids, address indexed buyer, uint256[] fractions);
+    /// @notice Event emitted when fleet sales are withdrawn.
+    event FleetSalesWithdrawn(address indexed token, address indexed to, uint256 amount);
+    /// @notice Event emitted when an ERC20 token is added to the fleet.
+    event ERC20Added(address indexed token);
+    /// @notice Event emitted when an ERC20 token is removed from the fleet.
+    event ERC20Removed(address indexed token);
+    /// @notice Event emitted when the fleet fraction price is changed.
+    event FleetFractionPriceChanged(uint256 oldPrice, uint256 newPrice);
+    /// @notice Event emitted when the maximum fleet orders is changed.
+    event MaxFleetOrderChanged(uint256 oldMax, uint256 newMax);
+    /// @notice Event emitted when a fleet order status changes.
+    event FleetOrderStatusChanged(uint256 indexed id, uint256 status);
+
+
+    /// @notice Error messages
+    error InvalidStatus();
+    error InvalidStateTransition();
+    error DuplicateIds();
+    error BulkUpdateLimitExceeded();
+    error InvalidId();
+    error IdDoesNotExist();
+    error InvalidTokenAddress();
+    error TokenNotAccepted();
+    error InsufficientBalance();
+    error MaxFleetOrderExceeded();
+    error MaxOrderMultipleFleetExceeded();
+    error MaxFleetOrderPerAddressExceeded();
+    error InvalidFractionAmount();
+    error FractionExceedsMax();
+    error NotEnoughTokens();
+    error InvalidAmount();
+    error NoNativeTokenAccepted();
+    error InvalidPrice();
+    error MaxFleetOrderNotIncreased();
+    error TokenAlreadyAdded();
+    error TokenNotAdded();
+
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     
-    /// @notice The contract level URI.
-    string public contractURI;
-    
+    /// @notice Initializer (replaces constructor).
+    function initialize() public initializer {
+        __Ownable_init(msg.sender);
+        __Pausable_init();
+        __ReentrancyGuard_init();
+        __UUPSUpgradeable_init();
+    }
+
+
+    /// @notice Authorize UUPS upgrades only by owner.
+    /// @param newImplementation The address of the new implementation.
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
 
     /// @notice Pause the contract 
@@ -144,13 +160,6 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     function unpause() external onlyOwner {
         _unpause();
     }
-
-
-    /// @notice Set the contract level URI.
-    /// @param _contractURI The URI to set.
-    function setContractURI(string memory _contractURI) external onlyOwner {
-        contractURI = _contractURI;
-    }   
 
 
     /// @notice Set the fleet fraction price.
@@ -208,12 +217,9 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         // Cache fleetFractionPrice in memory
         uint256 price = fleetFractionPrice;
         
-        // Use unchecked for known safe operations
-        unchecked {
-            uint256 amount = price * fractions * (10 ** decimals);
-            if (tokenContract.balanceOf(msg.sender) < amount) revert NotEnoughTokens();
-            tokenContract.safeTransferFrom(msg.sender, address(this), amount);
-        }
+        uint256 amount = price * fractions * (10 ** decimals);
+        if (tokenContract.balanceOf(msg.sender) < amount) revert NotEnoughTokens();
+        tokenContract.safeTransferFrom(msg.sender, address(this), amount);
     }
 
 
@@ -242,6 +248,7 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         // Check that the order at that index matches the given id.
         return fleetOwned[owner][index] == id;
     }
+
 
     /// @notice Check if a fleet order is owned by an address.
     /// @param owner The address of the owner.
@@ -531,6 +538,7 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         return status > 0 && status <= TRANSFERRED && (status & (status - 1)) == 0;
     }
 
+
     /// @notice Check if a state transition is valid
     /// @param currentStatus The current status
     /// @param newStatus The new status to transition to
@@ -546,6 +554,7 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         return false;
     }
 
+
     /// @notice Check for duplicate IDs in an array
     /// @param ids The array of IDs to check
     /// @return bool True if there are no duplicates
@@ -557,6 +566,7 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         }
         return true;
     }
+
 
     /// @notice Validate all status transitions in bulk
     /// @param ids The array of IDs to validate
@@ -577,10 +587,14 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
     }
 
 
+    /// @notice Set the status of a fleet order
+    /// @param id The id of the fleet order to set the status for
+    /// @param status The new status to set
     function setFleetOrderStatus(uint256 id, uint256 status) internal {
         fleetOrderStatus[id] = status;
         emit FleetOrderStatusChanged(id, status);
     }
+
 
     /// @notice Set the status of multiple fleet orders
     /// @param ids The ids of the fleet orders to set the status for
@@ -600,6 +614,7 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
             setFleetOrderStatus(ids[i], status);
         }
     }
+
 
     /// @notice Get the current status of a fleet order
     /// @param id The id of the fleet order to get the status for
@@ -621,17 +636,6 @@ contract FleetOrderBook is IERC6909TokenSupply, IERC6909ContentURI, ERC6909, Own
         revert InvalidStatus();
     }
     
-
-    /// @notice The URI for each id.
-    /// @param id The id of the fleet order to get the URI for.
-    /// @return The URI of the token.
-    function tokenURI(uint256 id) public view override returns (string memory) {
-        if (id == 0) revert InvalidId();
-        if (id > totalFleet) revert IdDoesNotExist();
-        string memory baseURI = contractURI;
-        return bytes(baseURI).length > 0 ? string.concat(baseURI, id.toString()) : "";
-    }
-
 
     /// @notice Transfer a fleet order.
     /// @param receiver The address of the receiver.
