@@ -217,12 +217,9 @@ contract FleetOrderBook is IERC6909TokenSupply, ERC6909, Initializable, OwnableU
         // Cache fleetFractionPrice in memory
         uint256 price = fleetFractionPrice;
         
-        // Use unchecked for known safe operations
-        unchecked {
-            uint256 amount = price * fractions * (10 ** decimals);
-            if (tokenContract.balanceOf(msg.sender) < amount) revert NotEnoughTokens();
-            tokenContract.safeTransferFrom(msg.sender, address(this), amount);
-        }
+        uint256 amount = price * fractions * (10 ** decimals);
+        if (tokenContract.balanceOf(msg.sender) < amount) revert NotEnoughTokens();
+        tokenContract.safeTransferFrom(msg.sender, address(this), amount);
     }
 
 
