@@ -20,13 +20,6 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-/// @dev OpenZeppelin Upgradeable imports
-import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
-import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
-
 
 
 /// @title 3wb.club fleet order book V1.0
@@ -35,7 +28,7 @@ import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/
 
 
 
-contract FleetOrderBook is IERC6909TokenSupply, ERC6909, Initializable, OwnableUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable, UUPSUpgradeable {
+contract FleetOrderBook is IERC6909TokenSupply, ERC6909, Ownable, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using Strings for uint256;
     
@@ -135,24 +128,7 @@ contract FleetOrderBook is IERC6909TokenSupply, ERC6909, Initializable, OwnableU
     error TokenNotAdded();
 
 
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
-
-    
-    /// @notice Initializer (replaces constructor).
-    function initialize() public initializer {
-        __Ownable_init(msg.sender);
-        __Pausable_init();
-        __ReentrancyGuard_init();
-        __UUPSUpgradeable_init();
-    }
-
-
-    /// @notice Authorize UUPS upgrades only by owner.
-    /// @param newImplementation The address of the new implementation.
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+    constructor() Ownable(msg.sender) {}
 
 
     /// @notice Pause the contract 
