@@ -23,12 +23,12 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 
 
 /// @title 3wb.club fleet order book V1.0
-/// @notice Manages pre-orders for fractional and full investments in 3-wheelers
+/// @notice Manages referral pre-orders for fractional and full investments in 3-wheelers
 /// @author geeloko.eth
 
 
 
-contract FleetOrderBook is IERC6909TokenSupply, ERC6909, Ownable, Pausable, ReentrancyGuard {
+contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using Strings for uint256;
     
