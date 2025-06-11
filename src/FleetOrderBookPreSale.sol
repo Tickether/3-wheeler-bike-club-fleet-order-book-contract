@@ -82,8 +82,6 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
     mapping(address => mapping(uint256 => uint256)) private fleetOwnedIndex;
     /// @notice tracking owners index for each fleet order
     mapping(uint256 => mapping(address => uint256)) private fleetOwnersIndex;
-
-
     
 
     /*..............................................................*/
@@ -99,10 +97,6 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
     mapping(address => uint256) public referralPoolShares;
     
 
-
-
-    
-  
 
     /// @notice Event emitted when a fleet order is placed.
     event FleetOrdered(uint256[] ids, address indexed buyer, uint256 indexed amount);
@@ -122,7 +116,8 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
     event MaxFleetOrderChanged(uint256 oldMax, uint256 newMax);
     /// @notice Event emitted when a fleet order status changes.
     event FleetOrderStatusChanged(uint256 indexed id, uint256 status);
-
+    /// @notice Event emitted when a wallet is added as a referrer.
+    event Referrered(address indexed referrer, address indexed referred, uint256 shares);
 
     /// @notice Error messages
     error InvalidStatus();
