@@ -23,12 +23,12 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 
 
 /// @title 3wb.club fleet order book V1.0
-/// @notice Manages pre-orders for fractional and full investments in 3-wheelers
+/// @notice Manages referral pre-orders for fractional and full investments in 3-wheelers
 /// @author geeloko.eth
 
 
 
-contract FleetOrderBook is IERC6909TokenSupply, ERC6909, Ownable, Pausable, ReentrancyGuard {
+contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using Strings for uint256;
     
@@ -42,7 +42,7 @@ contract FleetOrderBook is IERC6909TokenSupply, ERC6909, Ownable, Pausable, Reen
     /// @notice  Price per fleet fraction  in USD.
     uint256 public fleetFractionPrice;
 
-    
+
     /// @notice State constants - each state is a power of 2 (bit position)
     uint256 constant INIT = 1 << 0;         // 00000001
     uint256 constant CREATED = 1 << 1;      // 00000010
@@ -82,7 +82,21 @@ contract FleetOrderBook is IERC6909TokenSupply, ERC6909, Ownable, Pausable, Reen
     mapping(address => mapping(uint256 => uint256)) private fleetOwnedIndex;
     /// @notice tracking owners index for each fleet order
     mapping(uint256 => mapping(address => uint256)) private fleetOwnersIndex;
-  
+    
+
+    /*..............................................................*/
+    // presale system variables
+    /*..............................................................*/
+    /// @notice Whether a wallet is whitelisted for the presale.
+    mapping(address => bool) public isWhitelisted;
+    /// @notice List of referrers.
+    mapping(address => bool) public isReferrer;
+    /// @notice Mapping of referrer to referred.
+    mapping(address => address) public referral;
+    /// @notice Mapping of referrer to referral pool shares.
+    mapping(address => uint256) public referralPoolShares;
+    
+
 
     /// @notice Event emitted when a fleet order is placed.
     event FleetOrdered(uint256[] ids, address indexed buyer, uint256 indexed amount);
@@ -102,6 +116,8 @@ contract FleetOrderBook is IERC6909TokenSupply, ERC6909, Ownable, Pausable, Reen
     event MaxFleetOrderChanged(uint256 oldMax, uint256 newMax);
     /// @notice Event emitted when a fleet order status changes.
     event FleetOrderStatusChanged(uint256 indexed id, uint256 status);
+    /// @notice Event emitted when a wallet is added as a referrer.
+    event Referrered(address indexed referrer, address indexed referred, uint256 shares);
 
 
     /// @notice Error messages
@@ -162,6 +178,22 @@ contract FleetOrderBook is IERC6909TokenSupply, ERC6909, Ownable, Pausable, Reen
         emit MaxFleetOrderChanged(oldMax, _maxFleetOrder);
     }
 
+
+    /// @notice Set the referrer.
+    /// @param referrers The addresses to set as referrers.
+    function setReferrer(address[] calldata referrers) external onlyOwner {
+        for (uint256 i = 0; i < referrers.length; i++) {
+            isReferrer[referrers[i]] = true;
+        }
+    }
+
+    /// @notice Set the whitelist.
+    /// @param owners The addresses to set as whitelisted.
+    function setWhitelisted(address[] calldata owners) external onlyOwner {
+        for (uint256 i = 0; i < owners.length; i++) {
+            isWhitelisted[owners[i]] = true;
+        }
+    }
 
     /// @notice Add erc20contract to fleetERC20s.
     /// @param erc20Contract The address of the ERC20 contract.
