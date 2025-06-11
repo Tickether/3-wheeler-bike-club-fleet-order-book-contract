@@ -505,8 +505,12 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
             // handle full fleet order
             ids[i] = handleFullFleetOrder(erc20Contract);
         }
-        
         emit FleetOrdered(ids, msg.sender, amount);
+
+        uint256 shares = amount * MAX_FLEET_FRACTION;
+        referralPoolShares[referrer] += shares;
+        emit Referrered(referrer, msg.sender, shares);
+        
     }
 
 
@@ -529,6 +533,10 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
         if (lastFleetFractionID < 1) {
             handleInitialFractionsFleetOrder(fractions, erc20Contract);
             emit FleetFractionOrdered(lastFleetFractionID, msg.sender, fractions);
+
+            // add to referral pool
+            referralPoolShares[referrer] += fractions;
+            emit Referrered(referrer, msg.sender, fractions);
         }
         // if not first mint
         else {
@@ -541,11 +549,19 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
                 if (totalFleet + 1 > maxFleetOrder) revert MaxFleetOrderExceeded();
                 handleInitialFractionsFleetOrder(fractions, erc20Contract);
                 emit FleetFractionOrdered(lastFleetFractionID, msg.sender, fractions);
+
+                // add to referral pool
+                referralPoolShares[referrer] += fractions;
+                emit Referrered(referrer, msg.sender, fractions);
             } else {
                 // if requested fractions fit in remaining space
                 if (fractions <= fractionsLeft) {
                     handleAdditionalFractionsFleetOrder(fractions, erc20Contract);
                     emit FleetFractionOrdered(lastFleetFractionID, msg.sender, fractions);
+
+                    // add to referral pool
+                    referralPoolShares[referrer] += fractions;
+                    emit Referrered(referrer, msg.sender, fractions);
                 }
                 // if requested fractions exceed remaining space, split into two orders
                 else {
@@ -553,6 +569,10 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
                     if (totalFleet + 1 > maxFleetOrder) revert MaxFleetOrderExceeded();
                     (uint256[] memory ids, uint256[] memory fractionals) = handleFractionsFleetOrderOverflow(fractions, erc20Contract, fractionsLeft);
                     emit FleetFractionOverflowOrdered(ids, msg.sender, fractionals);
+
+                    // add to referral pool
+                    referralPoolShares[referrer] += fractions;
+                    emit Referrered(referrer, msg.sender, fractions);
                 }
             }
         }
