@@ -42,7 +42,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
     /// @notice  Price per fleet fraction  in USD.
     uint256 public fleetFractionPrice;
 
-    
+
     /// @notice State constants - each state is a power of 2 (bit position)
     uint256 constant INIT = 1 << 0;         // 00000001
     uint256 constant CREATED = 1 << 1;      // 00000010
@@ -82,6 +82,26 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
     mapping(address => mapping(uint256 => uint256)) private fleetOwnedIndex;
     /// @notice tracking owners index for each fleet order
     mapping(uint256 => mapping(address => uint256)) private fleetOwnersIndex;
+
+
+    
+
+    /*..............................................................*/
+    // presale system variables
+    /*..............................................................*/
+    /// @notice Whether a wallet is whitelisted for the presale.
+    mapping(address => bool) public isWhitelisted;
+    /// @notice List of referrers.
+    mapping(address => bool) public isReferrer;
+    /// @notice Mapping of referrer to referred.
+    mapping(address => address) public referral;
+    /// @notice Mapping of referrer to referral pool shares.
+    mapping(address => uint256) public referralPoolShares;
+    
+
+
+
+    
   
 
     /// @notice Event emitted when a fleet order is placed.
