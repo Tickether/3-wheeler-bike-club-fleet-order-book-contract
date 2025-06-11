@@ -489,6 +489,10 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
         if (erc20Contract == address(0)) revert InvalidTokenAddress();
         if (totalFleet + amount > maxFleetOrder) revert MaxFleetOrderExceeded();
 
+        if (referrer == address(0)) revert InvalidReferrer();
+        if (!isReferrer[referrer]) revert NotReferrer();
+        if (!isWhitelisted[msg.sender]) revert NotWhitelisted();
+        
         uint256[] memory ids = new uint256[](amount);
 
         for (uint256 i = 0; i < amount; i++) {
@@ -509,7 +513,6 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
         if (erc20Contract == address(0)) revert InvalidTokenAddress();
         if (fractions < MIN_FLEET_FRACTION) revert InvalidFractionAmount();
         if (fractions >= MAX_FLEET_FRACTION) revert FractionExceedsMax();
-    
 
         if (referrer == address(0)) revert InvalidReferrer();
         if (!isReferrer[referrer]) revert NotReferrer();
