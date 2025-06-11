@@ -85,11 +85,14 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
     
 
     /*..............................................................*/
-    // presale system variables
+    // presale system + compliance variables 
     /*..............................................................*/
+   
     /// @notice Whether a wallet is whitelisted for the presale.
     mapping(address => bool) public isWhitelisted;
-    /// @notice List of referrers.
+    /// @notice Whether a wallet is compliant.
+    mapping(address => bool) public isCompliant;
+    /// @notice Whether a wallet is a referrer.
     mapping(address => bool) public isReferrer;
     /// @notice Mapping of referrer to referred.
     mapping(address => address) public referral;
@@ -116,6 +119,8 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
     event MaxFleetOrderChanged(uint256 oldMax, uint256 newMax);
     /// @notice Event emitted when a fleet order status changes.
     event FleetOrderStatusChanged(uint256 indexed id, uint256 status);
+    /// @notice Event emitted when a wallet is whitelisted.
+    event Whitelisted(address indexed referrer, address[] owners);
     /// @notice Event emitted when a wallet is added as a referrer.
     event Referrered(address indexed referrer, address indexed referred, uint256 shares);
 
@@ -142,6 +147,12 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
     error MaxFleetOrderNotIncreased();
     error TokenAlreadyAdded();
     error TokenNotAdded();
+    error InvalidReferrer();
+    error NotReferrer();
+    error AlreadyReferred();
+    error NotWhitelisted();
+    error AlreadyWhitelisted();
+    error NotCompliant();
 
 
     constructor() Ownable(msg.sender) {}
@@ -181,7 +192,13 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
 
     /// @notice Set the referrer.
     /// @param referrers The addresses to set as referrers.
-    function setReferrer(address[] calldata referrers) external onlyOwner {
+    function addReferrer(address[] calldata referrers) external onlyOwner {
+        // First check all referrers are valid before making any changes
+        for (uint256 i = 0; i < referrers.length; i++) {
+            if (isReferrer[referrers[i]]) revert AlreadyReferred();
+        }
+
+        // If all checks pass, then set the referrers
         for (uint256 i = 0; i < referrers.length; i++) {
             isReferrer[referrers[i]] = true;
         }
@@ -189,10 +206,17 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
 
     /// @notice Set the whitelist.
     /// @param owners The addresses to set as whitelisted.
-    function setWhitelisted(address[] calldata owners) external onlyOwner {
+    function addWhitelisted(address[] calldata owners) external {
+        if (!isReferrer[msg.sender]) revert NotReferrer();
+        for (uint256 i = 0; i < owners.length; i++) {
+            if (isWhitelisted[owners[i]]) revert AlreadyWhitelisted();
+        }
+
         for (uint256 i = 0; i < owners.length; i++) {
             isWhitelisted[owners[i]] = true;
+            referral[owners[i]] = msg.sender;
         }
+        emit Whitelisted(msg.sender, owners);
     }
 
     /// @notice Add erc20contract to fleetERC20s.
@@ -462,7 +486,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
     /// @notice Order multiple fleet orders.
     /// @param amount The number of fleet orders to order.
     /// @param erc20Contract The address of the ERC20 contract.
-    function orderFleet(uint256 amount, address erc20Contract) external nonReentrant whenNotPaused {
+    function orderFleet(uint256 amount, address erc20Contract, address referrer) external nonReentrant whenNotPaused {
         if (fleetOwned[msg.sender].length + amount > MAX_FLEET_ORDER_PER_ADDRESS) revert MaxFleetOrderPerAddressExceeded();
         if (amount > MAX_ORDER_MULTIPLE_FLEET) revert MaxOrderMultipleFleetExceeded();
         if (amount < 1) revert InvalidAmount();
@@ -470,33 +494,49 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
         if (erc20Contract == address(0)) revert InvalidTokenAddress();
         if (totalFleet + amount > maxFleetOrder) revert MaxFleetOrderExceeded();
 
+        if (referrer == address(0)) revert InvalidReferrer();
+        if (!isReferrer[referrer]) revert NotReferrer();
+        if (!isWhitelisted[msg.sender]) revert NotWhitelisted();
+        if (!isCompliant[msg.sender]) revert NotCompliant();
+        
         uint256[] memory ids = new uint256[](amount);
 
         for (uint256 i = 0; i < amount; i++) {
             // handle full fleet order
             ids[i] = handleFullFleetOrder(erc20Contract);
         }
-        
         emit FleetOrdered(ids, msg.sender, amount);
+
+        uint256 shares = amount * MAX_FLEET_FRACTION;
+        referralPoolShares[referrer] += shares;
+        emit Referrered(referrer, msg.sender, shares);
+        
     }
 
 
     /// @notice Order a fleet onchain.
     /// @param fractions The number of fractions to order.
     /// @param erc20Contract The address of the ERC20 contract.
-    function orderFleetFraction(uint256 fractions, address erc20Contract) external nonReentrant whenNotPaused {
+    function orderFleetFraction(uint256 fractions, address erc20Contract, address referrer) external nonReentrant whenNotPaused {
         // Input validation
         if (!isTokenValid(erc20Contract)) revert TokenNotAccepted();
         if (erc20Contract == address(0)) revert InvalidTokenAddress();
         if (fractions < MIN_FLEET_FRACTION) revert InvalidFractionAmount();
         if (fractions >= MAX_FLEET_FRACTION) revert FractionExceedsMax();
 
-
+        if (referrer == address(0)) revert InvalidReferrer();
+        if (!isReferrer[referrer]) revert NotReferrer();
+        if (!isWhitelisted[msg.sender]) revert NotWhitelisted();
+        if (!isCompliant[msg.sender]) revert NotCompliant();
 
         // if first mint ie no last fleetFraction ID we create one
         if (lastFleetFractionID < 1) {
             handleInitialFractionsFleetOrder(fractions, erc20Contract);
             emit FleetFractionOrdered(lastFleetFractionID, msg.sender, fractions);
+
+            // add to referral pool
+            referralPoolShares[referrer] += fractions;
+            emit Referrered(referrer, msg.sender, fractions);
         }
         // if not first mint
         else {
@@ -509,11 +549,19 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
                 if (totalFleet + 1 > maxFleetOrder) revert MaxFleetOrderExceeded();
                 handleInitialFractionsFleetOrder(fractions, erc20Contract);
                 emit FleetFractionOrdered(lastFleetFractionID, msg.sender, fractions);
+
+                // add to referral pool
+                referralPoolShares[referrer] += fractions;
+                emit Referrered(referrer, msg.sender, fractions);
             } else {
                 // if requested fractions fit in remaining space
                 if (fractions <= fractionsLeft) {
                     handleAdditionalFractionsFleetOrder(fractions, erc20Contract);
                     emit FleetFractionOrdered(lastFleetFractionID, msg.sender, fractions);
+
+                    // add to referral pool
+                    referralPoolShares[referrer] += fractions;
+                    emit Referrered(referrer, msg.sender, fractions);
                 }
                 // if requested fractions exceed remaining space, split into two orders
                 else {
@@ -521,6 +569,10 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
                     if (totalFleet + 1 > maxFleetOrder) revert MaxFleetOrderExceeded();
                     (uint256[] memory ids, uint256[] memory fractionals) = handleFractionsFleetOrderOverflow(fractions, erc20Contract, fractionsLeft);
                     emit FleetFractionOverflowOrdered(ids, msg.sender, fractionals);
+
+                    // add to referral pool
+                    referralPoolShares[referrer] += fractions;
+                    emit Referrered(referrer, msg.sender, fractions);
                 }
             }
         }
