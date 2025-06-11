@@ -152,6 +152,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
     error AlreadyReferred();
     error NotWhitelisted();
     error AlreadyWhitelisted();
+    error NotCompliant();
 
 
     constructor() Ownable(msg.sender) {}
@@ -495,6 +496,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
         if (referrer == address(0)) revert InvalidReferrer();
         if (!isReferrer[referrer]) revert NotReferrer();
         if (!isWhitelisted[msg.sender]) revert NotWhitelisted();
+        if (!isCompliant[msg.sender]) revert NotCompliant();
         
         uint256[] memory ids = new uint256[](amount);
 
@@ -520,6 +522,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
         if (referrer == address(0)) revert InvalidReferrer();
         if (!isReferrer[referrer]) revert NotReferrer();
         if (!isWhitelisted[msg.sender]) revert NotWhitelisted();
+        if (!isCompliant[msg.sender]) revert NotCompliant();
 
         // if first mint ie no last fleetFraction ID we create one
         if (lastFleetFractionID < 1) {
