@@ -85,11 +85,14 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
     
 
     /*..............................................................*/
-    // presale system variables
+    // presale system + compliance variables 
     /*..............................................................*/
+   
     /// @notice Whether a wallet is whitelisted for the presale.
     mapping(address => bool) public isWhitelisted;
-    /// @notice List of referrers.
+    /// @notice Whether a wallet is compliant.
+    mapping(address => bool) public isCompliant;
+    /// @notice Whether a wallet is a referrer.
     mapping(address => bool) public isReferrer;
     /// @notice Mapping of referrer to referred.
     mapping(address => address) public referral;
