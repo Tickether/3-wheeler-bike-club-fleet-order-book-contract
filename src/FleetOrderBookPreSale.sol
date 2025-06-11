@@ -119,6 +119,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
     /// @notice Event emitted when a wallet is added as a referrer.
     event Referrered(address indexed referrer, address indexed referred, uint256 shares);
 
+
     /// @notice Error messages
     error InvalidStatus();
     error InvalidStateTransition();
@@ -177,6 +178,22 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
         emit MaxFleetOrderChanged(oldMax, _maxFleetOrder);
     }
 
+
+    /// @notice Set the referrer.
+    /// @param referrers The addresses to set as referrers.
+    function setReferrer(address[] calldata referrers) external onlyOwner {
+        for (uint256 i = 0; i < referrers.length; i++) {
+            isReferrer[referrers[i]] = true;
+        }
+    }
+
+    /// @notice Set the whitelist.
+    /// @param owners The addresses to set as whitelisted.
+    function setWhitelisted(address[] calldata owners) external onlyOwner {
+        for (uint256 i = 0; i < owners.length; i++) {
+            isWhitelisted[owners[i]] = true;
+        }
+    }
 
     /// @notice Add erc20contract to fleetERC20s.
     /// @param erc20Contract The address of the ERC20 contract.
