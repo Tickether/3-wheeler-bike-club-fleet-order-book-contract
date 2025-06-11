@@ -153,6 +153,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
     error NotWhitelisted();
     error AlreadyWhitelisted();
     error NotCompliant();
+    error AlreadyCompliant();
 
 
     constructor() Ownable(msg.sender) {}
@@ -218,6 +219,21 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
         }
         emit Whitelisted(msg.sender, owners);
     }
+
+
+    /// @notice Set the compliance.
+    /// @param owners The addresses to set as compliant.
+    function setCompliance(address[] calldata owners) external onlyOwner {
+        for (uint256 i = 0; i < owners.length; i++) {
+            if (!isWhitelisted[owners[i]]) revert NotWhitelisted();
+            if (isCompliant[owners[i]]) revert AlreadyCompliant();
+        }
+
+        for (uint256 i = 0; i < owners.length; i++) {
+            isCompliant[owners[i]] = true;
+        }
+    }
+
 
     /// @notice Add erc20contract to fleetERC20s.
     /// @param erc20Contract The address of the ERC20 contract.
