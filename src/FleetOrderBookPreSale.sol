@@ -154,6 +154,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
     error AlreadyWhitelisted();
     error NotCompliant();
     error AlreadyCompliant();
+    error CannotWhitelistReferrer();
 
 
     constructor() Ownable(msg.sender) {}
@@ -211,6 +212,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
         if (!isReferrer[msg.sender]) revert NotReferrer();
         if (!isCompliant[msg.sender]) revert NotCompliant();
         for (uint256 i = 0; i < owners.length; i++) {
+            if (isReferrer[owners[i]]) revert CannotWhitelistReferrer();
             if (isWhitelisted[owners[i]]) revert AlreadyWhitelisted();
         }
 
