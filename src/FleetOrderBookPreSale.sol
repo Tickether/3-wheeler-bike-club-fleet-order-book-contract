@@ -224,9 +224,23 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
 
     /// @notice Set the compliance.
     /// @param owners The addresses to set as compliant.
-    function setCompliance(address[] calldata owners) external onlyOwner {
+    function setWhitelistedCompliance(address[] calldata owners) external onlyOwner {
         for (uint256 i = 0; i < owners.length; i++) {
             if (!isWhitelisted[owners[i]]) revert NotWhitelisted();
+            if (isCompliant[owners[i]]) revert AlreadyCompliant();
+        }
+
+        for (uint256 i = 0; i < owners.length; i++) {
+            isCompliant[owners[i]] = true;
+        }
+    }
+
+
+    /// @notice Set the compliance.
+    /// @param owners The addresses to set as compliant.
+    function setReferrerCompliance(address[] calldata owners) external onlyOwner {
+        for (uint256 i = 0; i < owners.length; i++) {
+            if (!isReferrer[owners[i]]) revert NotReferrer();
             if (isCompliant[owners[i]]) revert AlreadyCompliant();
         }
 
