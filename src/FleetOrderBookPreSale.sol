@@ -209,6 +209,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
     /// @param owners The addresses to set as whitelisted.
     function addWhitelisted(address[] calldata owners) external {
         if (!isReferrer[msg.sender]) revert NotReferrer();
+        if (!isCompliant[msg.sender]) revert NotCompliant();
         for (uint256 i = 0; i < owners.length; i++) {
             if (isWhitelisted[owners[i]]) revert AlreadyWhitelisted();
         }
