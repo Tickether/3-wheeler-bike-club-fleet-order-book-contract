@@ -120,7 +120,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
     /// @notice Event emitted when a fleet order status changes.
     event FleetOrderStatusChanged(uint256 indexed id, uint256 status);
     /// @notice Event emitted when a wallet is whitelisted.
-    event Whitelisted(address indexed referrer, address[] owners);
+    event Whitelisted(address indexed referrer, address indexed owner);
     /// @notice Event emitted when a wallet is added as a referrer.
     event Referrered(address indexed referrer, address indexed referred, uint256 shares);
 
@@ -219,8 +219,8 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
         for (uint256 i = 0; i < owners.length; i++) {
             isWhitelisted[owners[i]] = true;
             referral[owners[i]] = msg.sender;
+            emit Whitelisted(msg.sender, owners[i]);
         }
-        emit Whitelisted(msg.sender, owners);
     }
 
 
