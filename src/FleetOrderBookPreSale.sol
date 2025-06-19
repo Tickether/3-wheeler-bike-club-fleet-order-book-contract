@@ -529,6 +529,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
 
         uint256 shares = amount * MAX_FLEET_FRACTION;
         referrerPoolShares[referrer] += shares;
+        referralPoolShares[msg.sender] += shares;
         emit Referrered(referrer, msg.sender, shares);
         
     }
@@ -556,6 +557,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
 
             // add to referral pool
             referrerPoolShares[referrer] += fractions;
+            referralPoolShares[msg.sender] += fractions;
             emit Referrered(referrer, msg.sender, fractions);
         }
         // if not first mint
@@ -572,6 +574,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
 
                 // add to referral pool
                 referrerPoolShares[referrer] += fractions;
+                referralPoolShares[msg.sender] += fractions;
                 emit Referrered(referrer, msg.sender, fractions);
             } else {
                 // if requested fractions fit in remaining space
@@ -581,6 +584,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
 
                     // add to referral pool
                     referrerPoolShares[referrer] += fractions;
+                    referralPoolShares[msg.sender] += fractions;
                     emit Referrered(referrer, msg.sender, fractions);
                 }
                 // if requested fractions exceed remaining space, split into two orders
@@ -592,6 +596,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
 
                     // add to referral pool
                     referrerPoolShares[referrer] += fractions;
+                    referralPoolShares[msg.sender] += fractions;
                     emit Referrered(referrer, msg.sender, fractions);
                 }
             }
