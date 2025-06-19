@@ -96,8 +96,10 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
     mapping(address => bool) public isReferrer;
     /// @notice Mapping of referrer to referred.
     mapping(address => address) public referral;
-    /// @notice Mapping of referrer to referral pool shares.
+    /// @notice Mapping of individual referred to total pool shares.
     mapping(address => uint256) public referralPoolShares;
+    /// @notice Mapping of referrer to referrer pool shares.
+    mapping(address => uint256) public referrerPoolShares;
     
 
 
@@ -526,7 +528,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
         emit FleetOrdered(ids, msg.sender, amount);
 
         uint256 shares = amount * MAX_FLEET_FRACTION;
-        referralPoolShares[referrer] += shares;
+        referrerPoolShares[referrer] += shares;
         emit Referrered(referrer, msg.sender, shares);
         
     }
@@ -553,7 +555,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
             emit FleetFractionOrdered(lastFleetFractionID, msg.sender, fractions);
 
             // add to referral pool
-            referralPoolShares[referrer] += fractions;
+            referrerPoolShares[referrer] += fractions;
             emit Referrered(referrer, msg.sender, fractions);
         }
         // if not first mint
@@ -569,7 +571,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
                 emit FleetFractionOrdered(lastFleetFractionID, msg.sender, fractions);
 
                 // add to referral pool
-                referralPoolShares[referrer] += fractions;
+                referrerPoolShares[referrer] += fractions;
                 emit Referrered(referrer, msg.sender, fractions);
             } else {
                 // if requested fractions fit in remaining space
@@ -578,7 +580,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
                     emit FleetFractionOrdered(lastFleetFractionID, msg.sender, fractions);
 
                     // add to referral pool
-                    referralPoolShares[referrer] += fractions;
+                    referrerPoolShares[referrer] += fractions;
                     emit Referrered(referrer, msg.sender, fractions);
                 }
                 // if requested fractions exceed remaining space, split into two orders
@@ -589,7 +591,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
                     emit FleetFractionOverflowOrdered(ids, msg.sender, fractionals);
 
                     // add to referral pool
-                    referralPoolShares[referrer] += fractions;
+                    referrerPoolShares[referrer] += fractions;
                     emit Referrered(referrer, msg.sender, fractions);
                 }
             }
