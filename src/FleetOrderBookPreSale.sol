@@ -71,9 +71,9 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
     /// @notice check if ERC20 is accepted for fleet orders
     mapping(address => bool) public fleetERC20;
     /// @notice owner => list of fleet order IDs
-    mapping(address => uint256[]) private fleetOwned;
+    mapping(address => uint256[]) public fleetOwned;
     /// @notice fleet order ID => list of owners
-    mapping(uint256 => address[]) private fleetOwners;
+    mapping(uint256 => address[]) public fleetOwners;
     /// @notice Total fractions of a token representing a 3-wheeler.
     mapping(uint256 => bool) public fleetFractioned;
     /// @notice Total fractions of a token representing a 3-wheeler.
@@ -601,22 +601,6 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
                 }
             }
         }
-    }
-
-
-    /// @notice Get the fleet orders owned by an address.
-    /// @param owner The address of the owner.
-    /// @return The fleet orders owned by the address.
-    function getFleetOwned(address owner) external view returns (uint256[] memory) {
-        return fleetOwned[owner];
-    }
-
-
-    /// @notice Get the fleet orders owned by an address.
-    /// @param id The id of the fleet order.
-    /// @return The addresses sharing the fleet id.
-    function getFleetOwners(uint256 id) external view returns (address[] memory) {
-        return fleetOwners[id];
     }
 
 
