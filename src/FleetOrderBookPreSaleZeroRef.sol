@@ -22,8 +22,8 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 
 
 
-/// @title 3wb.club fleet order book V1.0
-/// @notice Manages referral pre-orders for fractional and full investments in 3-wheelers
+/// @title 3wb.club fleet order book V1.1
+/// @notice Manages pre-orders for fractional and full investments in 3-wheelers
 /// @author geeloko.eth
 
 
@@ -84,13 +84,13 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
     mapping(uint256 => mapping(address => uint256)) private fleetOwnersIndex;
     
 
-    /*..............................................................*/
-    // pool tracking + compliance  
-    /*..............................................................*/
+    /*...........................................................................*/
+    // pool tracking(tracking user total fleet orders in pre-sale) + compliance  
+    /*...........................................................................*/
    
     /// @notice Whether a wallet is compliant.
     mapping(address => bool) public isCompliant;
-    /// @notice Mapping of individual referred to total pool shares.
+    /// @notice Mapping of individual users to total pool shares (total fleet orders).
     mapping(address => uint256) public poolShares;
     
 
@@ -180,6 +180,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
     /// @notice Set the compliance.
     /// @param owners The addresses to set as compliant.
     function setCompliance(address[] calldata owners) external onlyOwner {
+        if (owners.length == 0) revert InvalidAmount();
         for (uint256 i = 0; i < owners.length; i++) {
                 if (isCompliant[owners[i]]) revert AlreadyCompliant();
             }
@@ -244,7 +245,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
     /// @param id The id of the fleet order to check.
     /// @return bool True if the fleet order is owned by the address, false otherwise.
     function isFleetOwned(address owner, uint256 id) internal view returns (bool) {
-        // If no orders exist for msg.sender, return false immediately.
+        // If no orders exist for owner, return false immediately.
         if (fleetOwned[owner].length == 0) return false;
         
         // Retrieve the stored index for the order id.
@@ -671,7 +672,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
         address receiver,
         uint256 id,
         uint256 amount
-    ) public override returns (bool) {
+    ) public override nonReentrant returns (bool) {
         if (id == 0) revert InvalidId();
         if (id > totalFleet) revert IdDoesNotExist();
         if (fleetOwned[receiver].length >= MAX_FLEET_ORDER_PER_ADDRESS) revert MaxFleetOrderPerAddressExceeded();
@@ -707,7 +708,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
         address receiver,
         uint256 id,
         uint256 amount
-    ) public override returns (bool) {
+    ) public override nonReentrant returns (bool) {
         if (id == 0) revert InvalidId();
         if (id > totalFleet) revert IdDoesNotExist();
         if (fleetOwned[receiver].length >= MAX_FLEET_ORDER_PER_ADDRESS) revert MaxFleetOrderPerAddressExceeded();
