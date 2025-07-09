@@ -16,7 +16,7 @@ import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/I
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @dev OpenZeppelin access imports
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
@@ -24,14 +24,31 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 
 /// @title 3wb.club fleet order book V1.1
 /// @notice Manages pre-orders for fractional and full investments in 3-wheelers
+/// @notice Implements role-based access control for enhanced security
 /// @author geeloko.eth
+/// 
+/// @dev Role-based Access Control System:
+/// - DEFAULT_ADMIN_ROLE: Can grant/revoke all other roles, highest privilege
+/// - SUPER_ADMIN_ROLE: Can pause/unpause, set prices, max orders, add/remove ERC20s, update fleet status
+/// - COMPLIANCE_ROLE: Can set compliance status for users
+/// - WITHDRAWAL_ROLE: Can withdraw sales from the contract
+/// 
+/// @dev Security Benefits:
+/// - Reduces risk of compromising the deployer wallet
+/// - Allows delegation of specific functions to different admin addresses
+/// - Provides granular control over different aspects of the contract
+/// - Enables multi-signature or DAO governance for critical functions
 
 
 
-contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausable, ReentrancyGuard {
+contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using Strings for uint256;
     
+    /// @notice Role definitions
+    bytes32 public constant SUPER_ADMIN_ROLE = keccak256("SUPER_ADMIN_ROLE");
+    bytes32 public constant COMPLIANCE_ROLE = keccak256("COMPLIANCE_ROLE");
+    bytes32 public constant WITHDRAWAL_ROLE = keccak256("WITHDRAWAL_ROLE");
 
     /// @notice Total supply of a ids representing fleet orders.
     uint256 public totalFleet;
@@ -141,24 +158,34 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
     error AlreadyCompliant();
 
 
-    constructor() Ownable(msg.sender) {}
+    constructor() AccessControl() {
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(SUPER_ADMIN_ROLE, msg.sender);
+    }
+
+    /// @notice Override supportsInterface to handle multiple inheritance
+    /// @param interfaceId The interface ID to check
+    /// @return bool True if the interface is supported
+    function supportsInterface(bytes4 interfaceId) public view virtual override(AccessControl, ERC6909) returns (bool) {
+        return AccessControl.supportsInterface(interfaceId) || ERC6909.supportsInterface(interfaceId);
+    }
 
 
     /// @notice Pause the contract 
-    function pause() external onlyOwner {
+    function pause() external onlyRole(SUPER_ADMIN_ROLE) {
         _pause();
     }
 
 
     /// @notice Unpause the contract
-    function unpause() external onlyOwner {
+    function unpause() external onlyRole(SUPER_ADMIN_ROLE) {
         _unpause();
     }
 
 
     /// @notice Set the fleet fraction price.
     /// @param _fleetFractionPrice The price to set.
-    function setFleetFractionPrice(uint256 _fleetFractionPrice) external onlyOwner {
+    function setFleetFractionPrice(uint256 _fleetFractionPrice) external onlyRole(SUPER_ADMIN_ROLE) {
         if (_fleetFractionPrice == 0) revert InvalidPrice();
         uint256 oldPrice = fleetFractionPrice;
         fleetFractionPrice = _fleetFractionPrice;
@@ -168,7 +195,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
 
     /// @notice Set the maximum number of fleet orders.
     /// @param _maxFleetOrder The maximum number of fleet orders to set.    
-    function setMaxFleetOrder(uint256 _maxFleetOrder) external onlyOwner {
+    function setMaxFleetOrder(uint256 _maxFleetOrder) external onlyRole(SUPER_ADMIN_ROLE) {
         if (_maxFleetOrder <= maxFleetOrder) revert MaxFleetOrderNotIncreased();
         uint256 oldMax = maxFleetOrder;
         maxFleetOrder = _maxFleetOrder;
@@ -179,7 +206,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
 
     /// @notice Set the compliance.
     /// @param owners The addresses to set as compliant.
-    function setCompliance(address[] calldata owners) external onlyOwner {
+    function setCompliance(address[] calldata owners) external onlyRole(COMPLIANCE_ROLE) {
         if (owners.length == 0) revert InvalidAmount();
         for (uint256 i = 0; i < owners.length; i++) {
                 if (isCompliant[owners[i]]) revert AlreadyCompliant();
@@ -195,7 +222,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
     /// @param erc20Contract The address of the ERC20 contract.
     function addERC20(address erc20Contract) 
         external
-        onlyOwner
+        onlyRole(SUPER_ADMIN_ROLE)
     {
         if (erc20Contract == address(0)) revert InvalidTokenAddress();
         if (fleetERC20[erc20Contract]) revert TokenAlreadyAdded();
@@ -207,7 +234,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
     
     /// @notice remove erc20contract from fleetERC20s.
     /// @param erc20Contract The address of the ERC20 contract.
-    function removeERC20(address erc20Contract) external onlyOwner {
+    function removeERC20(address erc20Contract) external onlyRole(SUPER_ADMIN_ROLE) {
         if (erc20Contract == address(0)) revert InvalidTokenAddress();
         if (!fleetERC20[erc20Contract]) revert TokenNotAdded();
         
@@ -625,7 +652,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
     /// @notice Set the status of multiple fleet orders
     /// @param ids The ids of the fleet orders to set the status for
     /// @param status The new status to set
-    function setBulkFleetOrderStatus(uint256[] memory ids, uint256 status) external onlyOwner {
+    function setBulkFleetOrderStatus(uint256[] memory ids, uint256 status) external onlyRole(SUPER_ADMIN_ROLE) {
         // Early checks (cheap)
         if (ids.length == 0) revert InvalidAmount();
         if (ids.length > MAX_BULK_UPDATE) revert BulkUpdateLimitExceeded();
@@ -741,7 +768,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
     /// @notice Withdraw sales from fleet order book.
     /// @param token The address of the ERC20 contract.
     /// @param to The address to send the sales to.
-    function withdrawFleetOrderSales(address token, address to) external onlyOwner nonReentrant {
+    function withdrawFleetOrderSales(address token, address to) external onlyRole(WITHDRAWAL_ROLE) nonReentrant {
         if (token == address(0)) revert InvalidTokenAddress();
         IERC20 tokenContract = IERC20(token);
         uint256 amount = tokenContract.balanceOf(address(this));
@@ -754,5 +781,63 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
     receive() external payable { revert NoNativeTokenAccepted(); }
     fallback() external payable { revert NoNativeTokenAccepted(); }
 
+    // =================================================== ADMIN MANAGEMENT ====================================================
+
+    /// @notice Grant compliance role to an address
+    /// @param account The address to grant the compliance role to
+    function grantComplianceRole(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _grantRole(COMPLIANCE_ROLE, account);
+    }
+
+    /// @notice Revoke compliance role from an address
+    /// @param account The address to revoke the compliance role from
+    function revokeComplianceRole(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _revokeRole(COMPLIANCE_ROLE, account);
+    }
+
+    /// @notice Grant withdrawal role to an address
+    /// @param account The address to grant the withdrawal role to
+    function grantWithdrawalRole(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _grantRole(WITHDRAWAL_ROLE, account);
+    }
+
+    /// @notice Revoke withdrawal role from an address
+    /// @param account The address to revoke the withdrawal role from
+    function revokeWithdrawalRole(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _revokeRole(WITHDRAWAL_ROLE, account);
+    }
+
+    /// @notice Grant super admin role to an address
+    /// @param account The address to grant the super admin role to
+    function grantSuperAdminRole(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _grantRole(SUPER_ADMIN_ROLE, account);
+    }
+
+    /// @notice Revoke super admin role from an address
+    /// @param account The address to revoke the super admin role from
+    function revokeSuperAdminRole(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _revokeRole(SUPER_ADMIN_ROLE, account);
+    }
+
+    /// @notice Check if an address has compliance role
+    /// @param account The address to check
+    /// @return bool True if the address has compliance role
+    function isCompliance(address account) external view returns (bool) {
+        return hasRole(COMPLIANCE_ROLE, account);
+    }
+
+    /// @notice Check if an address has withdrawal role
+    /// @param account The address to check
+    /// @return bool True if the address has withdrawal role
+    function isWithdrawal(address account) external view returns (bool) {
+        return hasRole(WITHDRAWAL_ROLE, account);
+    }
+
+    /// @notice Check if an address has super admin role
+    /// @param account The address to check
+    /// @return bool True if the address has super admin role
+    function isSuperAdmin(address account) external view returns (bool) {
+        return hasRole(SUPER_ADMIN_ROLE, account);
+    }
 
 }
