@@ -135,6 +135,8 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     event ERC20Removed(address indexed token);
     /// @notice Event emitted when the fleet fraction price is changed.
     event FleetFractionPriceChanged(uint256 oldPrice, uint256 newPrice);
+    /// @notice Event emitted when the fleet fraction rate is changed.
+    event FleetFractionRateChanged(uint256 oldRate, uint256 newRate);
     /// @notice Event emitted when the maximum fleet orders is changed.
     event MaxFleetOrderChanged(uint256 oldMax, uint256 newMax);
     /// @notice Event emitted when a fleet order status changes.
@@ -160,6 +162,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     error InvalidAmount();
     error NoNativeTokenAccepted();
     error InvalidPrice();
+    error InvalidRate();
     error MaxFleetOrderNotIncreased();
     error TokenAlreadyAdded();
     error TokenNotAdded();
@@ -199,6 +202,13 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         uint256 oldPrice = fleetFractionPrice;
         fleetFractionPrice = _fleetFractionPrice;
         emit FleetFractionPriceChanged(oldPrice, _fleetFractionPrice);
+    }
+
+    function setFleetFractionRate(uint256 _fleetFractionRate) external onlyRole(SUPER_ADMIN_ROLE) {
+        if (_fleetFractionRate == 0) revert InvalidRate();
+        uint256 oldRate = fleetFractionRate;
+        fleetFractionRate = _fleetFractionRate;
+        emit FleetFractionRateChanged(oldRate, _fleetFractionRate);
     }
 
 
