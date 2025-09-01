@@ -25,6 +25,7 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 /// @title 3wb.club fleet order book V2.0
 /// @notice Manages pre-orders for fractional and full investments in 3-wheelers
 /// @notice Implements role-based access control for enhanced security
+/// @notice Implements unique initial and return rate for each fleet order
 /// @author geeloko.eth
 /// 
 /// @dev Role-based Access Control System:
@@ -56,8 +57,10 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     uint256 public lastFleetFractionID;    
     /// @notice Maximum number of fleet orders.
     uint256 public maxFleetOrder;
-    /// @notice  Price per fleet fraction  in USD.
+    /// @notice  Price per fleet fraction in USD.
     uint256 public fleetFractionPrice;
+    /// @notice  Price per fleet fraction in USD.
+    uint256 public fleetFractionRate;
 
 
     /// @notice State constants - each state is a power of 2 (bit position)
@@ -82,6 +85,12 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @notice Maximum number of fleet orders that can be purchased in bulk
     uint256 constant MAX_ORDER_MULTIPLE_FLEET = 3;
     
+
+    /// @notice Mapping to store the price and inital value of each 3-wheeler fleet order
+    mapping(uint256 => uint256) public fleetInitialValue;
+    /// @notice Mapping to store the expected rate of return for each 3-wheeler fleet order
+    mapping(uint256 => uint256) public fleetExpectedRate;
+
 
     /// @notice Mapping to store the IRL fulfillment state of each 3-wheeler fleet order
     mapping(uint256 => uint256) public fleetOrderStatus;
