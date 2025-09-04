@@ -168,6 +168,8 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     error TokenNotAdded();
     error NotCompliant();
     error AlreadyCompliant();
+    error InitialValueAlreadySet();
+    error ExpectedRateAlreadySet();
 
 
     constructor() AccessControl() {
@@ -204,11 +206,30 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         emit FleetFractionPriceChanged(oldPrice, _fleetFractionPrice);
     }
 
+
+    /// @notice Set the fleet fraction rate.
+    /// @param _fleetFractionRate The rate to set.
     function setFleetFractionRate(uint256 _fleetFractionRate) external onlyRole(SUPER_ADMIN_ROLE) {
         if (_fleetFractionRate == 0) revert InvalidRate();
         uint256 oldRate = fleetFractionRate;
         fleetFractionRate = _fleetFractionRate;
         emit FleetFractionRateChanged(oldRate, _fleetFractionRate);
+    }
+
+
+    /// @notice Set the fleet initial value.
+    /// @param _fleetInitialValue The value to set.
+    function setFleetInitialValue(uint256 _fleetInitialValue, uint256 id) internal {
+        if (fleetInitialValue[id] != 0) revert InitialValueAlreadySet();
+        fleetInitialValue[id] = _fleetInitialValue;
+    }
+
+
+    /// @notice Set the fleet expected rate.
+    /// @param _fleetExpectedRate The rate to set.
+    function setFleetExpectedRate(uint256 _fleetExpectedRate, uint256 id) internal {
+        if (fleetExpectedRate[id] != 0) revert ExpectedRateAlreadySet();
+        fleetExpectedRate[id] = _fleetExpectedRate;
     }
 
 
