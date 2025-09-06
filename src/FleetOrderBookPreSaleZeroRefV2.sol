@@ -55,8 +55,12 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     uint256 public totalFleet;
     /// @notice Last fleet fraction ID.
     uint256 public lastFleetFractionID;    
-    /// @notice Maximum number of fleet orders.
-    uint256 public maxFleetOrder;
+    /// @notice Total number of fleet orders in a container.
+    uint256 public fleetContainerOrder;
+    /// @notice Maximum number of fleet orders in a container.
+    uint256 public maxFleetContainerOrder;
+    /// @notice Total number of fleet container orders.
+    uint256 public totaContainerOrder;
     /// @notice  Price per fleet fraction in USD.
     uint256 public fleetFractionPrice;
     /// @notice  Price per fleet fraction in USD.
@@ -104,6 +108,8 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     mapping(uint256 => bool) public fleetFractioned;
     /// @notice Total fractions of a token representing a 3-wheeler.
     mapping(uint256 => uint256) public totalFractions;
+    /// @notice Total fleet orders per container.
+    mapping(uint256 => uint256) public totalFleetPerContainer;
     /// @notice tracking fleet order index for each owner
     mapping(address => mapping(uint256 => uint256)) private fleetOwnedIndex;
     /// @notice tracking owners index for each fleet order
@@ -137,11 +143,10 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     event FleetFractionPriceChanged(uint256 oldPrice, uint256 newPrice);
     /// @notice Event emitted when the fleet fraction rate is changed.
     event FleetFractionRateChanged(uint256 oldRate, uint256 newRate);
-    /// @notice Event emitted when the maximum fleet orders is changed.
-    event MaxFleetOrderChanged(uint256 oldMax, uint256 newMax);
     /// @notice Event emitted when a fleet order status changes.
     event FleetOrderStatusChanged(uint256 indexed id, uint256 status);
-
+    /// @notice Event emitted when the maximum fleet orders in a container is changed.
+    event MaxFleetContainerOrderChanged(uint256 oldMax, uint256 newMax);
 
     /// @notice Error messages
     error InvalidStatus();
@@ -163,7 +168,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     error NoNativeTokenAccepted();
     error InvalidPrice();
     error InvalidRate();
-    error MaxFleetOrderNotIncreased();
+    error MaxFleetContainerOrderCannotBeZero();
     error TokenAlreadyAdded();
     error TokenNotAdded();
     error NotCompliant();
@@ -234,12 +239,12 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
 
 
     /// @notice Set the maximum number of fleet orders.
-    /// @param _maxFleetOrder The maximum number of fleet orders to set.    
-    function setMaxFleetOrder(uint256 _maxFleetOrder) external onlyRole(SUPER_ADMIN_ROLE) {
-        if (_maxFleetOrder <= maxFleetOrder) revert MaxFleetOrderNotIncreased();
-        uint256 oldMax = maxFleetOrder;
-        maxFleetOrder = _maxFleetOrder;
-        emit MaxFleetOrderChanged(oldMax, _maxFleetOrder);
+    /// @param _maxFleetContainerOrder The maximum number of fleet orders in a container to set.    
+    function setMaxFleetContainerOrder(uint256 _maxFleetContainerOrder) external onlyRole(SUPER_ADMIN_ROLE) {
+        if (_maxFleetContainerOrder == 0) revert MaxFleetContainerOrderCannotBeZero();
+        uint256 oldMax = maxFleetContainerOrder;
+        maxFleetContainerOrder = _maxFleetContainerOrder;
+        emit MaxFleetContainerOrderChanged(oldMax, _maxFleetContainerOrder);
     }
 
 
