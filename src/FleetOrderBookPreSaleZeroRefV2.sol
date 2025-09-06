@@ -56,7 +56,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @notice Last fleet fraction ID.
     uint256 public lastFleetFractionID;    
     /// @notice Total number of fleet orders in a container.
-    uint256 public fleetContainerOrder;
+    uint256 public totalFleetContainerOrder;
     /// @notice Maximum number of fleet orders in a container.
     uint256 public maxFleetContainerOrder;
     /// @notice Total number of fleet container orders.
@@ -158,7 +158,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     error InvalidTokenAddress();
     error TokenNotAccepted();
     error InsufficientBalance();
-    error MaxFleetOrderExceeded();
+    error MaxFleetContainerOrderExceeded();
     error MaxOrderMultipleFleetExceeded();
     error MaxFleetOrderPerAddressExceeded();
     error InvalidFractionAmount();
@@ -536,7 +536,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         if (amount < 1) revert InvalidAmount();
         if (!isTokenValid(erc20Contract)) revert TokenNotAccepted();
         if (erc20Contract == address(0)) revert InvalidTokenAddress();
-        if (totalFleet + amount > maxFleetOrder) revert MaxFleetOrderExceeded();
+        if (totalFleetContainerOrder + amount > maxFleetContainerOrder) revert MaxFleetContainerOrderExceeded();
 
         if (!isCompliant[msg.sender]) revert NotCompliant();
         
@@ -582,7 +582,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
             // if fractions Left is zero ie last fraction quota completely filled
             if (fractionsLeft < 1) {
                 if (fleetOwned[msg.sender].length + 1 > MAX_FLEET_ORDER_PER_ADDRESS) revert MaxFleetOrderPerAddressExceeded();
-                if (totalFleet + 1 > maxFleetOrder) revert MaxFleetOrderExceeded();
+                if (totalFleetContainerOrder + 1 > maxFleetContainerOrder) revert MaxFleetContainerOrderExceeded();
                 handleInitialFractionsFleetOrder(fractions, erc20Contract);
                 emit FleetFractionOrdered(lastFleetFractionID, msg.sender, fractions);
 
@@ -600,7 +600,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
                 // if requested fractions exceed remaining space, split into two orders
                 else {
                     if (fleetOwned[msg.sender].length + 1 > MAX_FLEET_ORDER_PER_ADDRESS) revert MaxFleetOrderPerAddressExceeded();
-                    if (totalFleet + 1 > maxFleetOrder) revert MaxFleetOrderExceeded();
+                        if (totalFleetContainerOrder + 1 > maxFleetContainerOrder) revert MaxFleetContainerOrderExceeded();
                     (uint256[] memory ids, uint256[] memory fractionals) = handleFractionsFleetOrderOverflow(fractions, erc20Contract, fractionsLeft);
                     emit FleetFractionOverflowOrdered(ids, msg.sender, fractionals);
 
