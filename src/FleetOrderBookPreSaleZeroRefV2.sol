@@ -56,9 +56,9 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @notice Last fleet fraction ID.
     uint256 public lastFleetFractionID;    
     /// @notice Total number of fleet orders in a container.
-    uint256 public totalFleetContainerOrder;
+    uint256 public totalFleetOrderPerContainer;
     /// @notice Maximum number of fleet orders in a container.
-    uint256 public maxFleetContainerOrder;
+    uint256 public maxFleetOrderPerContainer;
     /// @notice Total number of fleet container orders.
     uint256 public totaContainerOrder;
     /// @notice  Price per fleet fraction in USD.
@@ -242,8 +242,8 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @param _maxFleetContainerOrder The maximum number of fleet orders in a container to set.    
     function setMaxFleetContainerOrder(uint256 _maxFleetContainerOrder) external onlyRole(SUPER_ADMIN_ROLE) {
         if (_maxFleetContainerOrder == 0) revert MaxFleetContainerOrderCannotBeZero();
-        uint256 oldMax = maxFleetContainerOrder;
-        maxFleetContainerOrder = _maxFleetContainerOrder;
+        uint256 oldMax = maxFleetOrderPerContainer;
+        maxFleetOrderPerContainer = _maxFleetContainerOrder;
         emit MaxFleetContainerOrderChanged(oldMax, _maxFleetContainerOrder);
     }
 
@@ -422,6 +422,16 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         // id counter
         totalFleet++;
         totalFractions[totalFleet] = 1;
+        // container counter
+        totalFleetOrderPerContainer++;
+
+        
+        // set initial value
+        setFleetInitialValue(MAX_FLEET_FRACTION * fleetFractionPrice, totalFleet);
+        // set expected rate
+        setFleetExpectedRate(fleetFractionRate, totalFleet);
+
+
         // set status
         setFleetOrderStatus(totalFleet, INIT);
         emit FleetOrderStatusChanged(totalFleet, INIT);
@@ -536,7 +546,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         if (amount < 1) revert InvalidAmount();
         if (!isTokenValid(erc20Contract)) revert TokenNotAccepted();
         if (erc20Contract == address(0)) revert InvalidTokenAddress();
-        if (totalFleetContainerOrder + amount > maxFleetContainerOrder) revert MaxFleetContainerOrderExceeded();
+        if (totalFleetOrderPerContainer + amount > maxFleetOrderPerContainer) revert MaxFleetContainerOrderExceeded();
 
         if (!isCompliant[msg.sender]) revert NotCompliant();
         
@@ -582,7 +592,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
             // if fractions Left is zero ie last fraction quota completely filled
             if (fractionsLeft < 1) {
                 if (fleetOwned[msg.sender].length + 1 > MAX_FLEET_ORDER_PER_ADDRESS) revert MaxFleetOrderPerAddressExceeded();
-                if (totalFleetContainerOrder + 1 > maxFleetContainerOrder) revert MaxFleetContainerOrderExceeded();
+                if (totalFleetOrderPerContainer + 1 > maxFleetOrderPerContainer) revert MaxFleetContainerOrderExceeded();
                 handleInitialFractionsFleetOrder(fractions, erc20Contract);
                 emit FleetFractionOrdered(lastFleetFractionID, msg.sender, fractions);
 
@@ -600,7 +610,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
                 // if requested fractions exceed remaining space, split into two orders
                 else {
                     if (fleetOwned[msg.sender].length + 1 > MAX_FLEET_ORDER_PER_ADDRESS) revert MaxFleetOrderPerAddressExceeded();
-                        if (totalFleetContainerOrder + 1 > maxFleetContainerOrder) revert MaxFleetContainerOrderExceeded();
+                        if (totalFleetOrderPerContainer + 1 > maxFleetOrderPerContainer) revert MaxFleetContainerOrderExceeded();
                     (uint256[] memory ids, uint256[] memory fractionals) = handleFractionsFleetOrderOverflow(fractions, erc20Contract, fractionsLeft);
                     emit FleetFractionOverflowOrdered(ids, msg.sender, fractionals);
 
