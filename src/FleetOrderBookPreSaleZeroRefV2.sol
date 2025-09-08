@@ -456,6 +456,16 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         lastFleetFractionID = totalFleet;
         fleetFractioned[lastFleetFractionID] = true;
         totalFractions[lastFleetFractionID] = totalFractions[lastFleetFractionID] + fractions;
+        // container counter
+        totalFleetOrderPerContainer++;
+
+        
+        // set initial value
+        setFleetInitialValue(fractions * fleetFractionPrice, totalFleet);
+        // set expected rate
+        setFleetExpectedRate(fleetFractionRate, totalFleet);
+
+
         // set status
         setFleetOrderStatus(lastFleetFractionID, INIT);
         emit FleetOrderStatusChanged(lastFleetFractionID, INIT);
@@ -521,6 +531,16 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         lastFleetFractionID = totalFleet;
         fleetFractioned[lastFleetFractionID] = true;
         totalFractions[lastFleetFractionID] = totalFractions[lastFleetFractionID] + overflowFractions;
+        // container counter
+        totalFleetOrderPerContainer++;
+
+        
+        // set initial value
+        setFleetInitialValue(fractions * fleetFractionPrice, totalFleet);
+        // set expected rate
+        setFleetExpectedRate(fleetFractionRate, totalFleet);
+
+
         // set status
         setFleetOrderStatus(lastFleetFractionID, INIT);
         emit FleetOrderStatusChanged(lastFleetFractionID, INIT);
