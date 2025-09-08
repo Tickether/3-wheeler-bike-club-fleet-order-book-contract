@@ -60,7 +60,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @notice Maximum number of fleet orders in a container.
     uint256 public maxFleetOrderPerContainer;
     /// @notice Total number of fleet container orders.
-    uint256 public totaContainerOrder;
+    uint256 public totalFleetContainerOrder;
     /// @notice  Price per fleet fraction in USD.
     uint256 public fleetFractionPrice;
     /// @notice  Price per fleet fraction in USD.
@@ -104,7 +104,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     mapping(address => uint256[]) private fleetOwned;
     /// @notice fleet order ID => list of owners
     mapping(uint256 => address[]) private fleetOwners;
-    /// @notice Total fractions of a token representing a 3-wheeler.
+    /// @notice checks if a token representing a 3-wheeler is fractioned.
     mapping(uint256 => bool) public fleetFractioned;
     /// @notice Total fractions of a token representing a 3-wheeler.
     mapping(uint256 => uint256) public totalFractions;
@@ -146,7 +146,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @notice Event emitted when a fleet order status changes.
     event FleetOrderStatusChanged(uint256 indexed id, uint256 status);
     /// @notice Event emitted when the maximum fleet orders in a container is changed.
-    event MaxFleetContainerOrderChanged(uint256 oldMax, uint256 newMax);
+    event MaxFleetOrderPerContainerChanged(uint256 oldMax, uint256 newMax);
 
     /// @notice Error messages
     error InvalidStatus();
@@ -158,7 +158,8 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     error InvalidTokenAddress();
     error TokenNotAccepted();
     error InsufficientBalance();
-    error MaxFleetContainerOrderExceeded();
+    error MaxFleetOrderPerContainerExceeded();
+    error MaxFleetOrderPerContainerNotReached();
     error MaxOrderMultipleFleetExceeded();
     error MaxFleetOrderPerAddressExceeded();
     error InvalidFractionAmount();
@@ -168,7 +169,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     error NoNativeTokenAccepted();
     error InvalidPrice();
     error InvalidRate();
-    error MaxFleetContainerOrderCannotBeZero();
+    error MaxFleetOrderPerContainerCannotBeZero();
     error TokenAlreadyAdded();
     error TokenNotAdded();
     error NotCompliant();
@@ -239,12 +240,12 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
 
 
     /// @notice Set the maximum number of fleet orders.
-    /// @param _maxFleetContainerOrder The maximum number of fleet orders in a container to set.    
-    function setMaxFleetContainerOrder(uint256 _maxFleetContainerOrder) external onlyRole(SUPER_ADMIN_ROLE) {
-        if (_maxFleetContainerOrder == 0) revert MaxFleetContainerOrderCannotBeZero();
+    /// @param _maxFleetOrderPerContainer The maximum number of fleet orders in a container to set.    
+    function setMaxFleetOrderPerContainer(uint256 _maxFleetOrderPerContainer) external onlyRole(SUPER_ADMIN_ROLE) {
+        if (_maxFleetOrderPerContainer == 0) revert MaxFleetOrderPerContainerCannotBeZero();
         uint256 oldMax = maxFleetOrderPerContainer;
-        maxFleetOrderPerContainer = _maxFleetContainerOrder;
-        emit MaxFleetContainerOrderChanged(oldMax, _maxFleetContainerOrder);
+        maxFleetOrderPerContainer = _maxFleetOrderPerContainer;
+        emit MaxFleetOrderPerContainerChanged(oldMax, _maxFleetOrderPerContainer);
     }
 
 
@@ -262,6 +263,15 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         }
     }
 
+
+    function startNextContainer() external onlyRole(SUPER_ADMIN_ROLE) {
+        if (totalFleetOrderPerContainer < maxFleetOrderPerContainer) revert MaxFleetOrderPerContainerNotReached();
+        bool isFractioned = fleetFractioned[totalFleet];
+        if (isFractioned && totalFractions[totalFleet] < MAX_FLEET_FRACTION) revert MaxFleetOrderPerContainerNotReached();
+        totalFleetContainerOrder++;
+        totalFleetPerContainer[totalFleetContainerOrder] = maxFleetOrderPerContainer;
+        _pause();
+    }
 
     /// @notice Add erc20contract to fleetERC20s.
     /// @param erc20Contract The address of the ERC20 contract.
@@ -566,7 +576,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         if (amount < 1) revert InvalidAmount();
         if (!isTokenValid(erc20Contract)) revert TokenNotAccepted();
         if (erc20Contract == address(0)) revert InvalidTokenAddress();
-        if (totalFleetOrderPerContainer + amount > maxFleetOrderPerContainer) revert MaxFleetContainerOrderExceeded();
+        if (totalFleetOrderPerContainer + amount > maxFleetOrderPerContainer) revert MaxFleetOrderPerContainerExceeded();
 
         if (!isCompliant[msg.sender]) revert NotCompliant();
         
@@ -612,7 +622,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
             // if fractions Left is zero ie last fraction quota completely filled
             if (fractionsLeft < 1) {
                 if (fleetOwned[msg.sender].length + 1 > MAX_FLEET_ORDER_PER_ADDRESS) revert MaxFleetOrderPerAddressExceeded();
-                if (totalFleetOrderPerContainer + 1 > maxFleetOrderPerContainer) revert MaxFleetContainerOrderExceeded();
+                if (totalFleetOrderPerContainer + 1 > maxFleetOrderPerContainer) revert MaxFleetOrderPerContainerExceeded();
                 handleInitialFractionsFleetOrder(fractions, erc20Contract);
                 emit FleetFractionOrdered(lastFleetFractionID, msg.sender, fractions);
 
@@ -630,7 +640,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
                 // if requested fractions exceed remaining space, split into two orders
                 else {
                     if (fleetOwned[msg.sender].length + 1 > MAX_FLEET_ORDER_PER_ADDRESS) revert MaxFleetOrderPerAddressExceeded();
-                        if (totalFleetOrderPerContainer + 1 > maxFleetOrderPerContainer) revert MaxFleetContainerOrderExceeded();
+                        if (totalFleetOrderPerContainer + 1 > maxFleetOrderPerContainer) revert MaxFleetOrderPerContainerExceeded();
                     (uint256[] memory ids, uint256[] memory fractionals) = handleFractionsFleetOrderOverflow(fractions, erc20Contract, fractionsLeft);
                     emit FleetFractionOverflowOrdered(ids, msg.sender, fractionals);
 
