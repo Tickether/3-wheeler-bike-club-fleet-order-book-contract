@@ -170,6 +170,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     error InvalidPrice();
     error InvalidRate();
     error MaxFleetOrderPerContainerCannotBeZero();
+    error MaxFleetOrderPerContainerCannotBeLessThanTotal();
     error TokenAlreadyAdded();
     error TokenNotAdded();
     error NotCompliant();
@@ -243,6 +244,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @param _maxFleetOrderPerContainer The maximum number of fleet orders in a container to set.    
     function setMaxFleetOrderPerContainer(uint256 _maxFleetOrderPerContainer) external onlyRole(SUPER_ADMIN_ROLE) {
         if (_maxFleetOrderPerContainer == 0) revert MaxFleetOrderPerContainerCannotBeZero();
+        if (_maxFleetOrderPerContainer <= totalFleetOrderPerContainer) revert MaxFleetOrderPerContainerCannotBeLessThanTotal();
         uint256 oldMax = maxFleetOrderPerContainer;
         maxFleetOrderPerContainer = _maxFleetOrderPerContainer;
         emit MaxFleetOrderPerContainerChanged(oldMax, _maxFleetOrderPerContainer);
@@ -270,6 +272,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         if (isFractioned && totalFractions[totalFleet] < MAX_FLEET_FRACTION) revert MaxFleetOrderPerContainerNotReached();
         totalFleetContainerOrder++;
         totalFleetPerContainer[totalFleetContainerOrder] = maxFleetOrderPerContainer;
+        totalFleetOrderPerContainer = 0;
         _pause();
     }
 
