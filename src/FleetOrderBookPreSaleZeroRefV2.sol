@@ -268,8 +268,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
 
     function startNextContainer() external onlyRole(SUPER_ADMIN_ROLE) {
         if (totalFleetOrderPerContainer < maxFleetOrderPerContainer) revert MaxFleetOrderPerContainerNotReached();
-        bool isFractioned = fleetFractioned[totalFleet];
-        if (isFractioned && totalFractions[totalFleet] < MAX_FLEET_FRACTION) revert MaxFleetOrderPerContainerNotReached();
+        if (totalFractions[lastFleetFractionID] < MAX_FLEET_FRACTION) revert MaxFleetOrderPerContainerNotReached();
         totalFleetContainerOrder++;
         totalFleetPerContainer[totalFleetContainerOrder] = maxFleetOrderPerContainer;
         totalFleetOrderPerContainer = 0;
