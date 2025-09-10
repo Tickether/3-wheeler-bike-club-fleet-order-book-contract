@@ -90,26 +90,28 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     uint256 constant MAX_ORDER_MULTIPLE_FLEET = 3;
     
 
+    /// @notice check if ERC20 is accepted for fleet orders
+    mapping(address => bool) public fleetERC20;
+
+
     /// @notice Mapping to store the price and inital value of each 3-wheeler fleet order
-    mapping(uint256 => uint256) public fleetInitialValue;
+    mapping(uint256 => uint256) private fleetInitialValue;
     /// @notice Mapping to store the expected rate of return for each 3-wheeler fleet order
-    mapping(uint256 => uint256) public fleetExpectedRate;
+    mapping(uint256 => uint256) private fleetExpectedRate;
 
 
     /// @notice Mapping to store the IRL fulfillment state of each 3-wheeler fleet order
-    mapping(uint256 => uint256) public fleetOrderStatus;
-    /// @notice check if ERC20 is accepted for fleet orders
-    mapping(address => bool) public fleetERC20;
+    mapping(uint256 => uint256) private fleetOrderStatus;
     /// @notice owner => list of fleet order IDs
     mapping(address => uint256[]) private fleetOwned;
     /// @notice fleet order ID => list of owners
     mapping(uint256 => address[]) private fleetOwners;
     /// @notice checks if a token representing a 3-wheeler is fractioned.
-    mapping(uint256 => bool) public fleetFractioned;
+    mapping(uint256 => bool) private fleetFractioned;
     /// @notice Total fractions of a token representing a 3-wheeler.
-    mapping(uint256 => uint256) public totalFractions;
+    mapping(uint256 => uint256) private totalFractions;
     /// @notice Total fleet orders per container.
-    mapping(uint256 => uint256) public totalFleetPerContainer;
+    mapping(uint256 => uint256) private totalFleetPerContainer;
     /// @notice tracking fleet order index for each owner
     mapping(address => mapping(uint256 => uint256)) private fleetOwnedIndex;
     /// @notice tracking owners index for each fleet order
@@ -180,6 +182,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
 
 
     constructor() AccessControl() {
+        _pause();
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(SUPER_ADMIN_ROLE, msg.sender);
     }
@@ -654,6 +657,26 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     }
 
 
+
+    /// @notice Get the initial value of a fleet order.
+    /// @param id The id of the fleet order.
+    /// @return The initial value of the fleet order.
+    function getFleetInitialValue(uint256 id) external view returns (uint256) {
+        if (id == 0) revert InvalidId();
+        if (id > totalFleet) revert IdDoesNotExist();
+        return fleetInitialValue[id];
+    }
+
+    /// @notice Get the expected rate of a fleet order.
+    /// @param id The id of the fleet order.
+    /// @return The expected rate of the fleet order.
+    function getFleetExpectedRate(uint256 id) external view returns (uint256) {
+        if (id == 0) revert InvalidId();
+        if (id > totalFleet) revert IdDoesNotExist();
+        return fleetExpectedRate[id];
+    }
+
+
     /// @notice Get the fleet orders owned by an address.
     /// @param owner The address of the owner.
     /// @return The fleet orders owned by the address.
@@ -666,7 +689,45 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @param id The id of the fleet order.
     /// @return The addresses sharing the fleet id.
     function getFleetOwners(uint256 id) external view returns (address[] memory) {
+        if (id == 0) revert InvalidId();
+        if (id > totalFleet) revert IdDoesNotExist();
         return fleetOwners[id];
+    }
+
+
+    /// @notice Get the fleet order status of a fleet order.
+    /// @param id The id of the fleet order.
+    /// @return The fleet order status of the fleet order.
+    function getFleetOrderStatus(uint256 id) external view returns (uint256) {
+        if (id == 0) revert InvalidId();
+        if (id > totalFleet) revert IdDoesNotExist();
+        return fleetOrderStatus[id];
+    }
+
+    function getFleetFractioned(uint256 id) external view returns (bool) {
+        if (id == 0) revert InvalidId();
+        if (id > totalFleet) revert IdDoesNotExist();
+        return fleetFractioned[id];
+    }
+
+
+    /// @notice Get the total fractions of a fleet order.
+    /// @param id The id of the fleet order.
+    /// @return The total fractions of the fleet order.
+    function getTotalFractions(uint256 id) external view returns (uint256) {
+        if (id == 0) revert InvalidId();
+        if (id > totalFleet) revert IdDoesNotExist();
+        return totalFractions[id];
+    }
+
+
+    /// @notice Get the total fleet per container of a fleet order.
+    /// @param id The id of the fleet order.
+    /// @return The total fleet per container of the fleet order.
+    function getTotalFleetPerContainer(uint256 id) external view returns (uint256) {
+        if (id == 0) revert InvalidId();
+        if (id > totalFleet) revert IdDoesNotExist();
+        return totalFleetPerContainer[id];
     }
 
 
@@ -759,7 +820,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @notice Get the current status of a fleet order
     /// @param id The id of the fleet order to get the status for
     /// @return string The human-readable status string
-    function getFleetOrderStatus(uint256 id) public view returns (string memory) {
+    function getFleetOrderStatusReadable(uint256 id) public view returns (string memory) {
         if (id == 0) revert InvalidId();
         if (id > totalFleet) revert IdDoesNotExist();
         uint256 status = fleetOrderStatus[id];
@@ -774,6 +835,16 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         if (status == TRANSFERRED) return "Transferred";
         
         revert InvalidStatus();
+    }
+
+
+    /// @notice Get the total supply of a fleet order.
+    /// @param id The id of the fleet order.
+    /// @return The total supply of the fleet order.
+    function totalSupply(uint256 id) external view returns (uint256) {
+        if (id == 0) revert InvalidId();
+        if (id > totalFleet) revert IdDoesNotExist();
+        return totalFractions[id];
     }
     
 
