@@ -254,7 +254,6 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     }
 
 
-
     /// @notice Set the compliance.
     /// @param owners The addresses to set as compliant.
     function setCompliance(address[] calldata owners) external onlyRole(COMPLIANCE_ROLE) {
@@ -269,6 +268,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     }
 
 
+    /// @notice Start the next container.
     function startNextContainer() external onlyRole(SUPER_ADMIN_ROLE) {
         if (totalFleetOrderPerContainer < maxFleetOrderPerContainer) revert MaxFleetOrderPerContainerNotReached();
         if (totalFractions[lastFleetFractionID] < MAX_FLEET_FRACTION) revert MaxFleetOrderPerContainerNotReached();
@@ -277,6 +277,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         totalFleetOrderPerContainer = 0;
         _pause();
     }
+
 
     /// @notice Add erc20contract to fleetERC20s.
     /// @param erc20Contract The address of the ERC20 contract.
@@ -657,7 +658,6 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     }
 
 
-
     /// @notice Get the initial value of a fleet order.
     /// @param id The id of the fleet order.
     /// @return The initial value of the fleet order.
@@ -666,6 +666,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         if (id > totalFleet) revert IdDoesNotExist();
         return fleetInitialValue[id];
     }
+
 
     /// @notice Get the expected rate of a fleet order.
     /// @param id The id of the fleet order.
@@ -703,6 +704,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         if (id > totalFleet) revert IdDoesNotExist();
         return fleetOrderStatus[id];
     }
+
 
     function getFleetFractioned(uint256 id) external view returns (bool) {
         if (id == 0) revert InvalidId();
