@@ -66,18 +66,20 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
     uint256 constant MAX_ORDER_MULTIPLE_FLEET = 3;
     
 
-    /// @notice Mapping to store the IRL fulfillment state of each 3-wheeler fleet order
-    mapping(uint256 => uint256) public fleetOrderStatus;
     /// @notice check if ERC20 is accepted for fleet orders
     mapping(address => bool) public fleetERC20;
+
+
+    /// @notice Mapping to store the IRL fulfillment state of each 3-wheeler fleet order
+    mapping(uint256 => uint256) private fleetOrderStatus;
     /// @notice owner => list of fleet order IDs
     mapping(address => uint256[]) private fleetOwned;
     /// @notice fleet order ID => list of owners
     mapping(uint256 => address[]) private fleetOwners;
+    /// @notice checks if a token representing a 3-wheeler is fractioned.
+    mapping(uint256 => bool) private fleetFractioned;
     /// @notice Total fractions of a token representing a 3-wheeler.
-    mapping(uint256 => bool) public fleetFractioned;
-    /// @notice Total fractions of a token representing a 3-wheeler.
-    mapping(uint256 => uint256) public totalFractions;
+    mapping(uint256 => uint256) private totalFractions;
     /// @notice tracking fleet order index for each owner
     mapping(address => mapping(uint256 => uint256)) private fleetOwnedIndex;
     /// @notice tracking owners index for each fleet order
@@ -724,6 +726,16 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, Ownable, Pausabl
         if (status == TRANSFERRED) return "Transferred";
         
         revert InvalidStatus();
+    }
+
+
+    /// @notice Get the total supply of a fleet order.
+    /// @param id The id of the fleet order.
+    /// @return The total supply of the fleet order.
+    function totalSupply(uint256 id) external view returns (uint256) {
+        if (id == 0) revert InvalidId();
+        if (id > totalFleet) revert IdDoesNotExist();
+        return totalFractions[id];
     }
     
 
