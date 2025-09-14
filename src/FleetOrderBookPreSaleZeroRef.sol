@@ -97,8 +97,6 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     mapping(uint256 => bool) private fleetFractioned;
     /// @notice Total fractions of a token representing a 3-wheeler.
     mapping(uint256 => uint256) private totalFractions;
-    /// @notice Total fleet orders per container.
-    mapping(uint256 => uint256) private totalFleetPerContainer;
     /// @notice tracking fleet order index for each owner
     mapping(address => mapping(uint256 => uint256)) private fleetOwnedIndex;
     /// @notice tracking owners index for each fleet order
@@ -213,8 +211,8 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     function setCompliance(address[] calldata owners) external onlyRole(COMPLIANCE_ROLE) {
         if (owners.length == 0) revert InvalidAmount();
         for (uint256 i = 0; i < owners.length; i++) {
-                if (isCompliant[owners[i]]) revert AlreadyCompliant();
-            }
+            if (isCompliant[owners[i]]) revert AlreadyCompliant();
+        }
 
         for (uint256 i = 0; i < owners.length; i++) {
             isCompliant[owners[i]] = true;
