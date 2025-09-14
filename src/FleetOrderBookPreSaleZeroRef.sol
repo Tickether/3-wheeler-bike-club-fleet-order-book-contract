@@ -85,7 +85,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
 
     /// @notice check if ERC20 is accepted for fleet orders
     mapping(address => bool) public fleetERC20;
-    
+
 
     /// @notice Mapping to store the IRL fulfillment state of each 3-wheeler fleet order
     mapping(uint256 => uint256) private fleetOrderStatus;
@@ -583,7 +583,36 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @param id The id of the fleet order.
     /// @return The addresses sharing the fleet id.
     function getFleetOwners(uint256 id) external view returns (address[] memory) {
+        if (id == 0) revert InvalidId();
+        if (id > totalFleet) revert IdDoesNotExist();
         return fleetOwners[id];
+    }
+
+
+    /// @notice Get the fleet order status of a fleet order.
+    /// @param id The id of the fleet order.
+    /// @return The fleet order status of the fleet order.
+    function getFleetOrderStatus(uint256 id) external view returns (uint256) {
+        if (id == 0) revert InvalidId();
+        if (id > totalFleet) revert IdDoesNotExist();
+        return fleetOrderStatus[id];
+    }
+
+
+    function getFleetFractioned(uint256 id) external view returns (bool) {
+        if (id == 0) revert InvalidId();
+        if (id > totalFleet) revert IdDoesNotExist();
+        return fleetFractioned[id];
+    }
+
+
+    /// @notice Get the total fractions of a fleet order.
+    /// @param id The id of the fleet order.
+    /// @return The total fractions of the fleet order.
+    function getTotalFractions(uint256 id) external view returns (uint256) {
+        if (id == 0) revert InvalidId();
+        if (id > totalFleet) revert IdDoesNotExist();
+        return totalFractions[id];
     }
 
 
@@ -676,7 +705,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @notice Get the current status of a fleet order
     /// @param id The id of the fleet order to get the status for
     /// @return string The human-readable status string
-    function getFleetOrderStatus(uint256 id) public view returns (string memory) {
+    function getFleetOrderStatusReadable(uint256 id) public view returns (string memory) {
         if (id == 0) revert InvalidId();
         if (id > totalFleet) revert IdDoesNotExist();
         uint256 status = fleetOrderStatus[id];
