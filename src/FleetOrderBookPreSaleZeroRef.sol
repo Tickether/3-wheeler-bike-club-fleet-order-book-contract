@@ -94,7 +94,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @notice Total fractions of a token representing a 3-wheeler.
     mapping(uint256 => bool) public fleetFractioned;
     /// @notice Total fractions of a token representing a 3-wheeler.
-    mapping(uint256 => uint256) public totalFractions;
+    mapping(uint256 => uint256) private totalFractions;
     /// @notice tracking fleet order index for each owner
     mapping(address => mapping(uint256 => uint256)) private fleetOwnedIndex;
     /// @notice tracking owners index for each fleet order
@@ -687,6 +687,16 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         if (status == TRANSFERRED) return "Transferred";
         
         revert InvalidStatus();
+    }
+
+
+    /// @notice Get the total supply of a fleet order.
+    /// @param id The id of the fleet order.
+    /// @return The total supply of the fleet order.
+    function totalSupply(uint256 id) external view returns (uint256) {
+        if (id == 0) revert InvalidId();
+        if (id > totalFleet) revert IdDoesNotExist();
+        return totalFractions[id];
     }
     
 
