@@ -352,7 +352,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @param id The id of the fleet order to check.
     /// @return bool True if the address is fleet owner false otherwise.
     function isAddressFleetOwner(address owner, uint256 id) internal view returns (bool){
-        // If no orders exist for msg.sender, return false immediately.
+        // If no orders exist for receiver, return false immediately.
         if (fleetOwners[id].length == 0) return false;
         
         // Retrieve the stored index for the order id.
