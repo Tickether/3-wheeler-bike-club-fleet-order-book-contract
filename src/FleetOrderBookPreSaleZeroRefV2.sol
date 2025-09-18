@@ -452,11 +452,11 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         setFleetOrderStatus(totalFleet, INIT);
         emit FleetOrderStatusChanged(totalFleet, INIT);
         // add fleet order ID to fleetOwned
-        addFleetOrder(msg.sender, totalFleet);
+        addFleetOrder(receiver, totalFleet);
         // add fleet owner
-        addFleetOwner(msg.sender, totalFleet);
+        addFleetOwner(receiver, totalFleet);
         // mint fractions
-        _mint(msg.sender, totalFleet, 1);  
+        _mint(receiver, totalFleet, 1);  
         return totalFleet;
     }
 
@@ -486,11 +486,11 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         setFleetOrderStatus(lastFleetFractionID, INIT);
         emit FleetOrderStatusChanged(lastFleetFractionID, INIT);
         // add fleet order ID to fleetOwned
-        addFleetOrder(msg.sender, lastFleetFractionID);
+        addFleetOrder(receiver, lastFleetFractionID);
         // add fleet owner
-        addFleetOwner(msg.sender, lastFleetFractionID);
+        addFleetOwner(receiver, lastFleetFractionID);
         // mint fractions
-        _mint(msg.sender, lastFleetFractionID, fractions);
+        _mint(receiver, lastFleetFractionID, fractions);
     }
     
 
@@ -501,16 +501,16 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         //pay fee
         payFeeERC20(fractions, erc20Contract);
         // add fleet order ID to fleetOwned
-        if (!isFleetOwned(msg.sender, lastFleetFractionID)) {
-            addFleetOrder(msg.sender, lastFleetFractionID);
+        if (!isFleetOwned(receiver, lastFleetFractionID)) {
+            addFleetOrder(receiver, lastFleetFractionID);
         }
         // add fleet owner if not already an owner
-        if (!isAddressFleetOwner(msg.sender, lastFleetFractionID)) {
-            addFleetOwner(msg.sender, lastFleetFractionID);
+        if (!isAddressFleetOwner(receiver, lastFleetFractionID)) {
+            addFleetOwner(receiver, lastFleetFractionID);
         }
         // mint fractions
         totalFractions[lastFleetFractionID] = totalFractions[lastFleetFractionID] + fractions;
-        _mint(msg.sender, lastFleetFractionID, fractions);
+        _mint(receiver, lastFleetFractionID, fractions);
     }
 
    
@@ -523,12 +523,12 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         payFeeERC20(fractions, erc20Contract);
 
         // add fleet order ID to fleetOwned
-        if (!isFleetOwned(msg.sender, lastFleetFractionID)) {
-            addFleetOrder(msg.sender, lastFleetFractionID);
+        if (!isFleetOwned(receiver, lastFleetFractionID)) {
+            addFleetOrder(receiver, lastFleetFractionID);
         }
         // add fleet owner if not already an owner
-        if (!isAddressFleetOwner(msg.sender, lastFleetFractionID)) {
-            addFleetOwner(msg.sender, lastFleetFractionID);
+        if (!isAddressFleetOwner(receiver, lastFleetFractionID)) {
+            addFleetOwner(receiver, lastFleetFractionID);
         }
         
         uint256[] memory ids = new uint256[](2);
@@ -538,7 +538,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
 
         // mint what is posible then...
         totalFractions[lastFleetFractionID] = totalFractions[lastFleetFractionID] + fractionsLeft;
-        _mint(msg.sender, lastFleetFractionID, fractionsLeft);
+        _mint(receiver, lastFleetFractionID, fractionsLeft);
         ids[0] = lastFleetFractionID;
         fractionals[0] = fractionsLeft;
 
@@ -561,11 +561,11 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         setFleetOrderStatus(lastFleetFractionID, INIT);
         emit FleetOrderStatusChanged(lastFleetFractionID, INIT);
         // add fleet order ID to fleetOwned
-        addFleetOrder(msg.sender, lastFleetFractionID);
+        addFleetOrder(receiver, lastFleetFractionID);
         // add fleet owner
-        addFleetOwner(msg.sender, lastFleetFractionID);
+        addFleetOwner(receiver, lastFleetFractionID);
         //...mint overflow
-        _mint(msg.sender, lastFleetFractionID, overflowFractions);
+        _mint(receiver, lastFleetFractionID, overflowFractions);
         ids[1] = lastFleetFractionID;
         fractionals[1] = overflowFractions;
 
