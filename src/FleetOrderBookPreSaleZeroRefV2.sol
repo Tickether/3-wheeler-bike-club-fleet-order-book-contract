@@ -97,7 +97,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @notice Mapping to store the price and inital value of each 3-wheeler fleet order
     mapping(uint256 => uint256) private fleetInitialValue;
     /// @notice Mapping to store the expected rate of return for each 3-wheeler fleet order
-    mapping(uint256 => uint256) private fleetExpectedRate;
+    mapping(uint256 => uint256) private fleetExpectedValue;
 
 
     /// @notice Mapping to store the IRL fulfillment state of each 3-wheeler fleet order
@@ -237,9 +237,9 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
 
     /// @notice Set the fleet expected rate.
     /// @param _fleetExpectedRate The rate to set.
-    function setFleetExpectedRate(uint256 _fleetExpectedRate, uint256 id) internal {
-        if (fleetExpectedRate[id] != 0) revert ExpectedRateAlreadySet();
-        fleetExpectedRate[id] = _fleetExpectedRate;
+    function setFleetExpectedValue(uint256 _fleetExpectedRate, uint256 id) internal {
+        if (fleetExpectedValue[id] != 0) revert ExpectedRateAlreadySet();
+        fleetExpectedValue[id] = _fleetExpectedRate;
     }
 
 
@@ -445,7 +445,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         // set initial value
         setFleetInitialValue(MAX_FLEET_FRACTION * fleetFractionPrice, totalFleet);
         // set expected rate
-        setFleetExpectedRate(fleetFractionRate, totalFleet);
+        setFleetExpectedValue(fleetFractionRate, totalFleet);
 
 
         // set status
@@ -479,7 +479,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         // set initial value
         setFleetInitialValue(fractions * fleetFractionPrice, totalFleet);
         // set expected rate
-        setFleetExpectedRate(fleetFractionRate, totalFleet);
+        setFleetExpectedValue(fleetFractionRate, totalFleet);
 
 
         // set status
@@ -554,7 +554,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         // set initial value
         setFleetInitialValue(fractions * fleetFractionPrice, totalFleet);
         // set expected rate
-        setFleetExpectedRate(fleetFractionRate, totalFleet);
+        setFleetExpectedValue(fleetFractionRate, totalFleet);
 
 
         // set status
@@ -671,10 +671,10 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @notice Get the expected rate of a fleet order.
     /// @param id The id of the fleet order.
     /// @return The expected rate of the fleet order.
-    function getFleetExpectedRate(uint256 id) external view returns (uint256) {
+    function getFleetExpectedValue(uint256 id) external view returns (uint256) {
         if (id == 0) revert InvalidId();
         if (id > totalFleet) revert IdDoesNotExist();
-        return fleetExpectedRate[id];
+        return fleetExpectedValue[id];
     }
 
 
