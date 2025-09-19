@@ -713,16 +713,6 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     }
 
 
-    /// @notice Get the total fractions of a fleet order.
-    /// @param id The id of the fleet order.
-    /// @return The total fractions of the fleet order.
-    function getTotalFractions(uint256 id) external view returns (uint256) {
-        if (id == 0) revert InvalidId();
-        if (id > totalFleet) revert IdDoesNotExist();
-        return totalFractions[id];
-    }
-
-
     /// @notice Get the total fleet per container of a fleet order.
     /// @param id The id of the fleet order.
     /// @return The total fleet per container of the fleet order.
