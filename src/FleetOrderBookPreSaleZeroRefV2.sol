@@ -64,7 +64,9 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @notice  Price per fleet fraction in USD.
     uint256 public fleetFractionPrice;
     /// @notice  Price per fleet fraction in USD.
-    uint256 public fleetFractionRate;
+    uint256 public fleetExpectedValue;
+    /// @notice  Lock period for fleet in weeks.
+    uint256 public fleetLockPeriod;
 
 
     /// @notice State constants - each state is a power of 2 (bit position)
@@ -95,9 +97,11 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
 
 
     /// @notice Mapping to store the price and inital value of each 3-wheeler fleet order
-    mapping(uint256 => uint256) private fleetInitialValue;
+    mapping(uint256 => uint256) private fleetInitialValuePerOrder;
     /// @notice Mapping to store the expected rate of return for each 3-wheeler fleet order
-    mapping(uint256 => uint256) private fleetExpectedValue;
+    mapping(uint256 => uint256) private fleetExpectedValuePerOrder;
+    /// @notice Mapping to store the lock period for each 3-wheeler fleet order
+    mapping(uint256 => uint256) private fleetLockPeriodPerOrder;
 
 
     /// @notice Mapping to store the IRL fulfillment state of each 3-wheeler fleet order
@@ -143,8 +147,6 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     event ERC20Removed(address indexed token);
     /// @notice Event emitted when the fleet fraction price is changed.
     event FleetFractionPriceChanged(uint256 oldPrice, uint256 newPrice);
-    /// @notice Event emitted when the fleet fraction rate is changed.
-    event FleetFractionRateChanged(uint256 oldRate, uint256 newRate);
     /// @notice Event emitted when a fleet order status changes.
     event FleetOrderStatusChanged(uint256 indexed id, uint256 status);
     /// @notice Event emitted when the maximum fleet orders in a container is changed.
@@ -170,7 +172,6 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     error InvalidAmount();
     error NoNativeTokenAccepted();
     error InvalidPrice();
-    error InvalidRate();
     error MaxFleetOrderPerContainerCannotBeZero();
     error MaxFleetOrderPerContainerCannotBeLessThanTotal();
     error TokenAlreadyAdded();
@@ -178,7 +179,8 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     error NotCompliant();
     error AlreadyCompliant();
     error InitialValueAlreadySet();
-    error ExpectedRateAlreadySet();
+    error ExpectedValueAlreadySet();
+    error LockPeriodAlreadySet();
 
 
     constructor() AccessControl() {
@@ -216,31 +218,38 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         emit FleetFractionPriceChanged(oldPrice, _fleetFractionPrice);
     }
 
-
-    /// @notice Set the fleet fraction rate.
-    /// @param _fleetFractionRate The rate to set.
-    function setFleetFractionRate(uint256 _fleetFractionRate) external onlyRole(SUPER_ADMIN_ROLE) {
-        if (_fleetFractionRate == 0) revert InvalidRate();
-        uint256 oldRate = fleetFractionRate;
-        fleetFractionRate = _fleetFractionRate;
-        emit FleetFractionRateChanged(oldRate, _fleetFractionRate);
+    /// @notice Set the fleet expected rate.
+    /// @param _fleetExpectedValue The expected value to set.
+    /// @param _fleetLockPeriod The lock period to set.
+    function setFleetExpectedValuePlusLockPeriod(uint256 _fleetExpectedValue, uint256 _fleetLockPeriod) external onlyRole(SUPER_ADMIN_ROLE) {
+        fleetExpectedValue = _fleetExpectedValue;
+        fleetLockPeriod = _fleetLockPeriod;
     }
 
 
     /// @notice Set the fleet initial value.
-    /// @param _fleetInitialValue The value to set.
-    function setFleetInitialValue(uint256 _fleetInitialValue, uint256 id) internal {
-        if (fleetInitialValue[id] != 0) revert InitialValueAlreadySet();
-        fleetInitialValue[id] = _fleetInitialValue;
+    /// @param _fleetInitialValuePerOrder The value to set.
+    function setFleetInitialValuePerOrder(uint256 _fleetInitialValuePerOrder, uint256 id) internal {
+        if (fleetInitialValuePerOrder[id] != 0) revert InitialValueAlreadySet();
+        fleetInitialValuePerOrder[id] = _fleetInitialValuePerOrder;
     }
 
 
     /// @notice Set the fleet expected rate.
-    /// @param _fleetExpectedRate The rate to set.
-    function setFleetExpectedValue(uint256 _fleetExpectedRate, uint256 id) internal {
-        if (fleetExpectedValue[id] != 0) revert ExpectedRateAlreadySet();
-        fleetExpectedValue[id] = _fleetExpectedRate;
+    /// @param _fleetExpectedValuePerOrder The rate to set.
+    function setFleetExpectedValuePerOrder(uint256 _fleetExpectedValuePerOrder, uint256 id) internal {
+        if (fleetExpectedValuePerOrder[id] != 0) revert ExpectedValueAlreadySet();
+        fleetExpectedValuePerOrder[id] = _fleetExpectedValuePerOrder;
     }
+
+
+    /// @notice Set the fleet lock period.
+    /// @param _fleetLockPeriod The lock period to set.
+    function setFleetLockPeriodPerOrder(uint256 _fleetLockPeriod, uint256 id) internal {
+        if (fleetLockPeriodPerOrder[id] != 0) revert LockPeriodAlreadySet();
+        fleetLockPeriodPerOrder[id] = _fleetLockPeriod;
+    }
+    
 
 
     /// @notice Set the maximum number of fleet orders.
@@ -443,9 +452,11 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
 
         
         // set initial value
-        setFleetInitialValue(MAX_FLEET_FRACTION * fleetFractionPrice, totalFleet);
+        setFleetInitialValuePerOrder(MAX_FLEET_FRACTION * fleetFractionPrice, totalFleet);
         // set expected rate
-        setFleetExpectedValue(fleetFractionRate, totalFleet);
+        setFleetExpectedValuePerOrder(fleetExpectedValue, totalFleet);
+        // set lock period
+        setFleetLockPeriodPerOrder(fleetLockPeriod, totalFleet);
 
 
         // set status
@@ -477,10 +488,11 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
 
         
         // set initial value
-        setFleetInitialValue(fractions * fleetFractionPrice, totalFleet);
+        setFleetInitialValuePerOrder(fractions * fleetFractionPrice, totalFleet);
         // set expected rate
-        setFleetExpectedValue(fleetFractionRate, totalFleet);
-
+        setFleetExpectedValuePerOrder(fleetExpectedValue, totalFleet);
+        // set lock period
+        setFleetLockPeriodPerOrder(fleetLockPeriod, totalFleet);
 
         // set status
         setFleetOrderStatus(lastFleetFractionID, INIT);
@@ -552,9 +564,11 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
 
         
         // set initial value
-        setFleetInitialValue(fractions * fleetFractionPrice, totalFleet);
+        setFleetInitialValuePerOrder(fractions * fleetFractionPrice, totalFleet);
         // set expected rate
-        setFleetExpectedValue(fleetFractionRate, totalFleet);
+        setFleetExpectedValuePerOrder(fleetExpectedValue, totalFleet);
+        // set lock period
+        setFleetLockPeriodPerOrder(fleetLockPeriod, totalFleet);
 
 
         // set status
@@ -661,20 +675,30 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @notice Get the initial value of a fleet order.
     /// @param id The id of the fleet order.
     /// @return The initial value of the fleet order.
-    function getFleetInitialValue(uint256 id) external view returns (uint256) {
+    function getFleetInitialValuePerOrder(uint256 id) external view returns (uint256) {
         if (id == 0) revert InvalidId();
         if (id > totalFleet) revert IdDoesNotExist();
-        return fleetInitialValue[id];
+        return fleetInitialValuePerOrder[id];
     }
 
 
     /// @notice Get the expected rate of a fleet order.
     /// @param id The id of the fleet order.
     /// @return The expected rate of the fleet order.
-    function getFleetExpectedValue(uint256 id) external view returns (uint256) {
+    function getFleetExpectedValuePerOrder(uint256 id) external view returns (uint256) {
         if (id == 0) revert InvalidId();
         if (id > totalFleet) revert IdDoesNotExist();
-        return fleetExpectedValue[id];
+        return fleetExpectedValuePerOrder[id];
+    }
+
+
+    /// @notice Get the lock period of a fleet order.
+    /// @param id The id of the fleet order.
+    /// @return The lock period of the fleet order.
+    function getFleetLockPeriodPerOrder(uint256 id) external view returns (uint256) {
+        if (id == 0) revert InvalidId();
+        if (id > totalFleet) revert IdDoesNotExist();
+        return fleetLockPeriodPerOrder[id];
     }
 
 
