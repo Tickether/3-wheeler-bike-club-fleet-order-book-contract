@@ -181,6 +181,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     error InitialValueAlreadySet();
     error ExpectedValueAlreadySet();
     error LockPeriodAlreadySet();
+    error CannotChangeValueDuringOpenRound();
 
 
     constructor() AccessControl() {
@@ -213,6 +214,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @param _fleetFractionPrice The price to set.
     function setFleetFractionPrice(uint256 _fleetFractionPrice) external onlyRole(SUPER_ADMIN_ROLE) {
         if (_fleetFractionPrice == 0) revert InvalidPrice();
+        if (totalFleetOrderPerContainer != 0) revert CannotChangeValueDuringOpenRound();
         uint256 oldPrice = fleetFractionPrice;
         fleetFractionPrice = _fleetFractionPrice;
         emit FleetFractionPriceChanged(oldPrice, _fleetFractionPrice);
@@ -222,6 +224,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @param _fleetExpectedValue The expected value to set.
     /// @param _fleetLockPeriod The lock period to set.
     function setFleetExpectedValuePlusLockPeriod(uint256 _fleetExpectedValue, uint256 _fleetLockPeriod) external onlyRole(SUPER_ADMIN_ROLE) {
+        if (totalFleetOrderPerContainer != 0) revert CannotChangeValueDuringOpenRound();
         fleetExpectedValue = _fleetExpectedValue;
         fleetLockPeriod = _fleetLockPeriod;
     }
@@ -257,6 +260,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     function setMaxFleetOrderPerContainer(uint256 _maxFleetOrderPerContainer) external onlyRole(SUPER_ADMIN_ROLE) {
         if (_maxFleetOrderPerContainer == 0) revert MaxFleetOrderPerContainerCannotBeZero();
         if (_maxFleetOrderPerContainer <= totalFleetOrderPerContainer) revert MaxFleetOrderPerContainerCannotBeLessThanTotal();
+        if (totalFleetOrderPerContainer != 0) revert CannotChangeValueDuringOpenRound();
         uint256 oldMax = maxFleetOrderPerContainer;
         maxFleetOrderPerContainer = _maxFleetOrderPerContainer;
         emit MaxFleetOrderPerContainerChanged(oldMax, _maxFleetOrderPerContainer);
