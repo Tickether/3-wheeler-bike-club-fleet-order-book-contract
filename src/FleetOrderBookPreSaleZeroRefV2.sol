@@ -95,6 +95,11 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @notice check if ERC20 is accepted for fleet orders
     mapping(address => bool) public fleetERC20;
 
+    /// @notice Mapping to store the operator of each 3-wheeler fleet order
+    mapping(uint256 => address) private fleetOperator;
+    /// @notice Mapping to store the operator of each 3-wheeler fleet order
+    mapping(address => uint256[]) private fleetOperated;
+
 
     /// @notice Mapping to store the price and inital value of each 3-wheeler fleet order
     mapping(uint256 => uint256) private fleetInitialValuePerOrder;
@@ -689,6 +694,14 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
                 }
             }
         }
+    }
+
+
+    function assignFleet(uint256 id, address operator) external onlyRole(SUPER_ADMIN_ROLE) {
+        if (id == 0) revert InvalidId();
+        if (id > totalFleet) revert IdDoesNotExist();
+        //if (operator == address(0)) revert InvalidOperator();
+        //if (operator != msg.sender) revert NotOperator();
     }
 
 
