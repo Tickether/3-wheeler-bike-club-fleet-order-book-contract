@@ -98,8 +98,10 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
 
     /// @notice Mapping to store the price and inital value of each 3-wheeler fleet order
     mapping(uint256 => uint256) private fleetInitialValuePerOrder;
-    /// @notice Mapping to store the expected rate of return for each 3-wheeler fleet order
-    mapping(uint256 => uint256) private fleetExpectedValuePerOrder;
+    /// @notice Mapping to store the expected protocol return for each 3-wheeler fleet order
+    mapping(uint256 => uint256) private fleetProtocolExpectedValuePerOrder;
+    /// @notice Mapping to store the expected liquidity provider return for each 3-wheeler fleet order
+    mapping(uint256 => uint256) private fleetLiquidityProviderExpectedValuePerOrder;
     /// @notice Mapping to store the lock period for each 3-wheeler fleet order
     mapping(uint256 => uint256) private fleetLockPeriodPerOrder;
 
@@ -239,10 +241,18 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
 
 
     /// @notice Set the fleet expected rate.
-    /// @param _fleetExpectedValuePerOrder The rate to set.
-    function setFleetExpectedValuePerOrder(uint256 _fleetExpectedValuePerOrder, uint256 id) internal {
-        if (fleetExpectedValuePerOrder[id] != 0) revert ExpectedValueAlreadySet();
-        fleetExpectedValuePerOrder[id] = _fleetExpectedValuePerOrder;
+    /// @param _fleetProtocolExpectedValuePerOrder The rate to set.
+    function setFleetProtocolExpectedValuePerOrder(uint256 _fleetProtocolExpectedValuePerOrder, uint256 id) internal {
+        if (fleetProtocolExpectedValuePerOrder[id] != 0) revert ExpectedValueAlreadySet();
+        fleetProtocolExpectedValuePerOrder[id] = _fleetProtocolExpectedValuePerOrder;
+    }
+
+
+    /// @notice Set the fleet expected rate.
+    /// @param _fleetLiquidityProviderExpectedValuePerOrder The rate to set.
+    function setFleetLiquidityProviderExpectedValuePerOrder(uint256 _fleetLiquidityProviderExpectedValuePerOrder, uint256 id) internal {
+        if (fleetLiquidityProviderExpectedValuePerOrder[id] != 0) revert ExpectedValueAlreadySet();
+        fleetLiquidityProviderExpectedValuePerOrder[id] = _fleetLiquidityProviderExpectedValuePerOrder;
     }
 
 
@@ -457,8 +467,10 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         
         // set initial value
         setFleetInitialValuePerOrder(MAX_FLEET_FRACTION * fleetFractionPrice, totalFleet);
-        // set expected rate
-        setFleetExpectedValuePerOrder(fleetExpectedValue, totalFleet);
+        // set protocol expected rate
+        setFleetProtocolExpectedValuePerOrder(fleetExpectedValue, totalFleet);
+        // set liquidity provider expected rate
+        setFleetLiquidityProviderExpectedValuePerOrder(fleetExpectedValue, totalFleet);
         // set lock period
         setFleetLockPeriodPerOrder(fleetLockPeriod, totalFleet);
 
@@ -493,8 +505,10 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         
         // set initial value
         setFleetInitialValuePerOrder(fractions * fleetFractionPrice, totalFleet);
-        // set expected rate
-        setFleetExpectedValuePerOrder(fleetExpectedValue, totalFleet);
+        // set protocol expected rate
+        setFleetProtocolExpectedValuePerOrder(fleetExpectedValue, totalFleet);
+        // set liquidity provider expected rate
+        setFleetLiquidityProviderExpectedValuePerOrder(fleetExpectedValue, totalFleet);
         // set lock period
         setFleetLockPeriodPerOrder(fleetLockPeriod, totalFleet);
 
@@ -569,8 +583,10 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         
         // set initial value
         setFleetInitialValuePerOrder(fractions * fleetFractionPrice, totalFleet);
-        // set expected rate
-        setFleetExpectedValuePerOrder(fleetExpectedValue, totalFleet);
+        // set protocol expected rate
+        setFleetProtocolExpectedValuePerOrder(fleetExpectedValue, totalFleet);
+        // set liquidity provider expected rate
+        setFleetLiquidityProviderExpectedValuePerOrder(fleetExpectedValue, totalFleet);
         // set lock period
         setFleetLockPeriodPerOrder(fleetLockPeriod, totalFleet);
 
@@ -688,11 +704,21 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
 
     /// @notice Get the expected rate of a fleet order.
     /// @param id The id of the fleet order.
-    /// @return The expected rate of the fleet order.
-    function getFleetExpectedValuePerOrder(uint256 id) external view returns (uint256) {
+    /// @return The protocol expected rate of the fleet order.
+    function getFleetProtocolExpectedValuePerOrder(uint256 id) external view returns (uint256) {
         if (id == 0) revert InvalidId();
         if (id > totalFleet) revert IdDoesNotExist();
-        return fleetExpectedValuePerOrder[id];
+        return fleetProtocolExpectedValuePerOrder[id];
+    }
+
+
+    /// @notice Get the expected rate of a fleet order.
+    /// @param id The id of the fleet order.
+    /// @return The liquidity provider expected rate of the fleet order.
+    function getFleetLiquidityProviderExpectedValuePerOrder(uint256 id) external view returns (uint256) {
+        if (id == 0) revert InvalidId();
+        if (id > totalFleet) revert IdDoesNotExist();
+        return fleetLiquidityProviderExpectedValuePerOrder[id];
     }
 
 
