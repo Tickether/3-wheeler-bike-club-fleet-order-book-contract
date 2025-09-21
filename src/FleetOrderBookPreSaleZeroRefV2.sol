@@ -392,6 +392,15 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         // Check that the order at that index matches the given id.
         return fleetOwners[id][index] == owner;
     }
+    
+    
+    /// @notice Check if a fleet order is operated by an address.
+    /// @param operator The address of the operator.
+    /// @param id The id of the fleet order to check.
+    /// @return bool True if the fleet order is operated by the address, false otherwise.
+    function isAddressFleetOperator(address operator, uint256 id) internal view returns (bool) {
+        return fleetOperator[id] == operator;
+    }
 
 
     /// @notice Add a fleet order to the owner.
