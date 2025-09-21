@@ -745,6 +745,23 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     }
 
 
+    /// @notice Get the fleet orders operated by an address.
+    /// @param operator The address of the operator.
+    /// @return The fleet orders operated by the address.
+    function getFleetOperated(address operator) external view returns (uint256[] memory) {
+        return fleetOperated[operator];
+    }
+
+
+    /// @notice Get the fleet orders operated by an address.
+    /// @param id The id of the fleet order.
+    /// @return The operator of the fleet order.
+    function getFleetOperator(uint256 id) external view returns (address) {
+        if (id == 0) revert InvalidId();
+        if (id > totalFleet) revert IdDoesNotExist();
+        return fleetOperator[id];
+    }
+
     /// @notice Get the fleet orders owned by an address.
     /// @param owner The address of the owner.
     /// @return The fleet orders owned by the address.
