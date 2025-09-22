@@ -96,7 +96,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     mapping(address => bool) public fleetERC20;
 
     /// @notice Mapping to store the operator of each 3-wheeler fleet order
-    mapping(uint256 => address) private fleetOperator;
+    mapping(uint256 => address[]) private fleetOperators;
     /// @notice Mapping to store the operator of each 3-wheeler fleet order
     mapping(address => uint256[]) private fleetOperated;
 
@@ -127,6 +127,10 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     mapping(address => mapping(uint256 => uint256)) private fleetOwnedIndex;
     /// @notice tracking owners index for each fleet order
     mapping(uint256 => mapping(address => uint256)) private fleetOwnersIndex;
+    /// @notice tracking fleet order index for each operator
+    mapping(address => mapping(uint256 => uint256)) private fleetOperatedIndex;
+    /// @notice tracking operators index for each fleet order
+    mapping(uint256 => mapping(address => uint256)) private fleetOperatorsIndex;
     
 
     /*...........................................................................*/
@@ -393,13 +397,23 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         return fleetOwners[id][index] == owner;
     }
     
-    
+
     /// @notice Check if a fleet order is operated by an address.
     /// @param operator The address of the operator.
     /// @param id The id of the fleet order to check.
     /// @return bool True if the fleet order is operated by the address, false otherwise.
     function isAddressFleetOperator(address operator, uint256 id) internal view returns (bool) {
-        return fleetOperator[id] == operator;
+        // If no orders exist for receiver, return false immediately.
+        if (fleetOperators[id].length == 0) return false;
+        
+        // Retrieve the stored index for the order id.
+        uint256 index = fleetOperatorsIndex[id][operator];
+
+        // If the index is out of range, then id is not owned.
+        if (index >= fleetOperators[id].length) return false;
+        
+        // Check that the order at that index matches the given id.
+        return fleetOperators[id][index] == operator;
     }
 
 
@@ -465,6 +479,27 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         fleetOwners[id].pop();
         delete fleetOwnersIndex[id][receiver];
     }
+
+
+    /// @notice Add a fleet order to the owner.
+    /// @param operator The address of the operator.
+    /// @param id The id of the fleet order to add.
+    function addFleetOperated(address operator, uint256 id) internal {
+        uint256[] storage owned = fleetOperated[operator];
+        owned.push(id);
+        fleetOperatedIndex[operator][id] = owned.length - 1;
+    }
+
+
+    /// @notice Add a fleet operator.
+    /// @param operator The address of the operator.
+    /// @param id The id of the fleet order to add.
+    function addFleetOperator(address operator, uint256 id) internal {
+        address[] storage operators = fleetOperators[id];
+        operators.push(operator);
+        fleetOperatorsIndex[id][operator] = operators.length - 1;
+    }
+
 
 
     /// @notice Handle a full fleet order.
@@ -765,10 +800,10 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @notice Get the fleet orders operated by an address.
     /// @param id The id of the fleet order.
     /// @return The operator of the fleet order.
-    function getFleetOperator(uint256 id) external view returns (address) {
+    function getFleetOperators(uint256 id) external view returns (address[] memory) {
         if (id == 0) revert InvalidId();
         if (id > totalFleet) revert IdDoesNotExist();
-        return fleetOperator[id];
+        return fleetOperators[id];
     }
 
     /// @notice Get the fleet orders owned by an address.
