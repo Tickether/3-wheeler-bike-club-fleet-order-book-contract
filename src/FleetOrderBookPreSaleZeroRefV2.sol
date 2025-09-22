@@ -4,6 +4,7 @@ pragma solidity ^0.8.13;
 
 /// @dev Interface imports
 import { IERC6909TokenSupply } from "./interfaces/IERC6909TokenSupply.sol";
+import { IFleetOrderYield } from "./interfaces/IFleetOrderYield.sol";
 
 /// @dev Solmate imports
 import { ERC6909 } from "solmate/tokens/ERC6909.sol";
@@ -170,7 +171,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     error BulkUpdateLimitExceeded();
     error InvalidId();
     error IdDoesNotExist();
-    error InvalidTokenAddress();
+    error InvalidAddress();
     error TokenNotAccepted();
     error InsufficientBalance();
     error MaxFleetOrderPerContainerExceeded();
@@ -193,6 +194,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     error ExpectedValueAlreadySet();
     error LockPeriodAlreadySet();
     error CannotChangeValueDuringOpenRound();
+    error OperatorAlreadyAssigned();
 
 
     constructor() AccessControl() {
@@ -317,7 +319,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         external
         onlyRole(SUPER_ADMIN_ROLE)
     {
-        if (erc20Contract == address(0)) revert InvalidTokenAddress();
+        if (erc20Contract == address(0)) revert InvalidAddress();
         if (fleetERC20[erc20Contract]) revert TokenAlreadyAdded();
 
         fleetERC20[erc20Contract] = true;
@@ -328,7 +330,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @notice remove erc20contract from fleetERC20s.
     /// @param erc20Contract The address of the ERC20 contract.
     function removeERC20(address erc20Contract) external onlyRole(SUPER_ADMIN_ROLE) {
-        if (erc20Contract == address(0)) revert InvalidTokenAddress();
+        if (erc20Contract == address(0)) revert InvalidAddress();
         if (!fleetERC20[erc20Contract]) revert TokenNotAdded();
         
         fleetERC20[erc20Contract] = false;
@@ -664,7 +666,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         if (amount > MAX_ORDER_MULTIPLE_FLEET) revert MaxOrderMultipleFleetExceeded();
         if (amount < 1) revert InvalidAmount();
         if (!isTokenValid(erc20Contract)) revert TokenNotAccepted();
-        if (erc20Contract == address(0)) revert InvalidTokenAddress();
+        if (erc20Contract == address(0)) revert InvalidAddress();
         if (totalFleetOrderPerContainer + amount > maxFleetOrderPerContainer) revert MaxFleetOrderPerContainerExceeded();
 
         if (!isCompliant[receiver]) revert NotCompliant();
@@ -689,7 +691,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     function orderFleetFraction(uint256 fractions, address erc20Contract, address receiver) external nonReentrant whenNotPaused {
         // Input validation
         if (!isTokenValid(erc20Contract)) revert TokenNotAccepted();
-        if (erc20Contract == address(0)) revert InvalidTokenAddress();
+        if (erc20Contract == address(0)) revert InvalidAddress();
         if (fractions < MIN_FLEET_FRACTION) revert InvalidFractionAmount();
         if (fractions >= MAX_FLEET_FRACTION) revert FractionExceedsMax();
 
@@ -744,8 +746,10 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     function assignFleet(uint256 id, address operator) external onlyRole(SUPER_ADMIN_ROLE) {
         if (id == 0) revert InvalidId();
         if (id > totalFleet) revert IdDoesNotExist();
-        //if (operator == address(0)) revert InvalidOperator();
-        //if (operator != msg.sender) revert NotOperator();
+        if (operator == address(0)) revert InvalidAddress();
+        if (isAddressFleetOperator(operator, id)) revert OperatorAlreadyAssigned();
+        addFleetOperator(operator, id);
+        addFleetOperated(operator, id);
     }
 
 
@@ -1047,7 +1051,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @param token The address of the ERC20 contract.
     /// @param to The address to send the sales to.
     function withdrawFleetOrderSales(address token, address to) external onlyRole(WITHDRAWAL_ROLE) nonReentrant {
-        if (token == address(0)) revert InvalidTokenAddress();
+        if (token == address(0)) revert InvalidAddress();
         IERC20 tokenContract = IERC20(token);
         uint256 amount = tokenContract.balanceOf(address(this));
         if (amount == 0) revert NotEnoughTokens();
