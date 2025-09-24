@@ -748,13 +748,16 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     }
 
 
-    function assignFleet(uint256 id, address operator) external onlyRole(SUPER_ADMIN_ROLE) {
+    function assignFleetOperator(uint256 id, address operator) external onlyRole(SUPER_ADMIN_ROLE) {
         if (id == 0) revert InvalidId();
         if (id > totalFleet) revert IdDoesNotExist();
         if (operator == address(0)) revert InvalidAddress();
         if (isAddressFleetOperator(operator, id)) revert OperatorAlreadyAssigned();
         addFleetOperator(operator, id);
         addFleetOperated(operator, id);
+        if(fleetOrderStatus[id] == REGISTERED){
+           setFleetOrderStatus(id, ASSIGNED);
+        }
     }
 
 
@@ -879,7 +882,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         if (currentStatus == SHIPPED) return newStatus == ARRIVED;
         if (currentStatus == ARRIVED) return newStatus == CLEARED;
         if (currentStatus == CLEARED) return newStatus == REGISTERED;
-        if (currentStatus == REGISTERED) return newStatus == ASSIGNED;
+        if (currentStatus == REGISTERED) return false;
         if (currentStatus == ASSIGNED && fleetOrderYieldContract.getFleetPaymentsDistributed(id) >= fleetLockPeriodPerOrder[id]) return newStatus == TRANSFERRED;
         return false;
     }
