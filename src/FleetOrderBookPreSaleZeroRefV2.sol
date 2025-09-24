@@ -52,6 +52,11 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     bytes32 public constant COMPLIANCE_ROLE = keccak256("COMPLIANCE_ROLE");
     bytes32 public constant WITHDRAWAL_ROLE = keccak256("WITHDRAWAL_ROLE");
 
+
+    /// @notice The fleet order yield contract
+    IFleetOrderYield public fleetOrderYieldContract;
+
+
     /// @notice Total supply of a ids representing fleet orders.
     uint256 public totalFleet;
     /// @notice Last fleet fraction ID.
@@ -868,14 +873,14 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @param currentStatus The current status
     /// @param newStatus The new status to transition to
     /// @return bool True if the transition is valid
-    function isValidTransition(uint256 currentStatus, uint256 newStatus) internal pure returns (bool) {
+    function isValidTransition(uint256 currentStatus, uint256 newStatus, uint256 id) internal view returns (bool) {
         if (currentStatus == INIT) return newStatus == CREATED;
         if (currentStatus == CREATED) return newStatus == SHIPPED;
         if (currentStatus == SHIPPED) return newStatus == ARRIVED;
         if (currentStatus == ARRIVED) return newStatus == CLEARED;
         if (currentStatus == CLEARED) return newStatus == REGISTERED;
         if (currentStatus == REGISTERED) return newStatus == ASSIGNED;
-        if (currentStatus == ASSIGNED) return newStatus == TRANSFERRED;
+        if (currentStatus == ASSIGNED && fleetOrderYieldContract.getFleetPaymentsDistributed(id) >= fleetLockPeriodPerOrder[id]) return newStatus == TRANSFERRED;
         return false;
     }
 
@@ -904,7 +909,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
             if (id > totalFleet) return false;
             
             uint256 currentStatus = fleetOrderStatus[id];
-            if (currentStatus != 0 && !isValidTransition(currentStatus, status)) {
+            if (currentStatus != 0 && !isValidTransition(currentStatus, status, id)) {
                 return false;
             }
         }
