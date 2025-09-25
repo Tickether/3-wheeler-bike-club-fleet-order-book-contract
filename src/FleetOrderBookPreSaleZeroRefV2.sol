@@ -293,6 +293,12 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     }
 
 
+    function setFleetOrderYieldContract(address _fleetOrderYieldContract) external onlyRole(SUPER_ADMIN_ROLE) {
+        if (_fleetOrderYieldContract == address(0)) revert InvalidAddress();
+        fleetOrderYieldContract = IFleetOrderYield(_fleetOrderYieldContract);
+    }
+
+
     /// @notice Set the compliance.
     /// @param owners The addresses to set as compliant.
     function setCompliance(address[] calldata owners) external onlyRole(COMPLIANCE_ROLE) {
