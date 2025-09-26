@@ -69,8 +69,10 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     uint256 public totalFleetContainerOrder;
     /// @notice  Price per fleet fraction in USD.
     uint256 public fleetFractionPrice;
-    /// @notice  Price per fleet fraction in USD.
-    uint256 public fleetExpectedValue;
+    /// @notice  Protocol expected value for fleet in USD.
+    uint256 public fleetProtocolExpectedValue;
+    /// @notice  Liquidity provider expected value for fleet in USD.
+    uint256 public fleetLiquidityProviderExpectedValue;
     /// @notice  Lock period for fleet in weeks.
     uint256 public fleetLockPeriod;
 
@@ -239,11 +241,13 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     }
 
     /// @notice Set the fleet expected rate.
-    /// @param _fleetExpectedValue The expected value to set.
+    /// @param _fleetProtocolExpectedValue The expected value to set.
+    /// @param _fleetLiquidityProviderExpectedValue The expected value to set.
     /// @param _fleetLockPeriod The lock period to set.
-    function setFleetExpectedValuePlusLockPeriod(uint256 _fleetExpectedValue, uint256 _fleetLockPeriod) external onlyRole(SUPER_ADMIN_ROLE) {
+    function setFleetExpectedValuePlusLockPeriod(uint256 _fleetProtocolExpectedValue, uint256 _fleetLiquidityProviderExpectedValue, uint256 _fleetLockPeriod) external onlyRole(SUPER_ADMIN_ROLE) {
         if (totalFleetOrderPerContainer != 0) revert CannotChangeValueDuringOpenRound();
-        fleetExpectedValue = _fleetExpectedValue;
+        fleetProtocolExpectedValue = _fleetProtocolExpectedValue;
+        fleetLiquidityProviderExpectedValue = _fleetLiquidityProviderExpectedValue;
         fleetLockPeriod = _fleetLockPeriod;
     }
 
@@ -530,9 +534,9 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         // set initial value
         setFleetInitialValuePerOrder(MAX_FLEET_FRACTION * fleetFractionPrice, totalFleet);
         // set protocol expected rate
-        setFleetProtocolExpectedValuePerOrder(fleetExpectedValue, totalFleet);
+        setFleetProtocolExpectedValuePerOrder(fleetProtocolExpectedValue, totalFleet);
         // set liquidity provider expected rate
-        setFleetLiquidityProviderExpectedValuePerOrder(fleetExpectedValue, totalFleet);
+        setFleetLiquidityProviderExpectedValuePerOrder(fleetLiquidityProviderExpectedValue, totalFleet);
         // set lock period
         setFleetLockPeriodPerOrder(fleetLockPeriod, totalFleet);
 
@@ -568,9 +572,9 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         // set initial value
         setFleetInitialValuePerOrder(fractions * fleetFractionPrice, totalFleet);
         // set protocol expected rate
-        setFleetProtocolExpectedValuePerOrder(fleetExpectedValue, totalFleet);
+        setFleetProtocolExpectedValuePerOrder(fleetProtocolExpectedValue, totalFleet);
         // set liquidity provider expected rate
-        setFleetLiquidityProviderExpectedValuePerOrder(fleetExpectedValue, totalFleet);
+        setFleetLiquidityProviderExpectedValuePerOrder(fleetLiquidityProviderExpectedValue, totalFleet);
         // set lock period
         setFleetLockPeriodPerOrder(fleetLockPeriod, totalFleet);
 
@@ -646,9 +650,9 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         // set initial value
         setFleetInitialValuePerOrder(fractions * fleetFractionPrice, totalFleet);
         // set protocol expected rate
-        setFleetProtocolExpectedValuePerOrder(fleetExpectedValue, totalFleet);
+        setFleetProtocolExpectedValuePerOrder(fleetProtocolExpectedValue, totalFleet);
         // set liquidity provider expected rate
-        setFleetLiquidityProviderExpectedValuePerOrder(fleetExpectedValue, totalFleet);
+        setFleetLiquidityProviderExpectedValuePerOrder(fleetLiquidityProviderExpectedValue, totalFleet);
         // set lock period
         setFleetLockPeriodPerOrder(fleetLockPeriod, totalFleet);
 
