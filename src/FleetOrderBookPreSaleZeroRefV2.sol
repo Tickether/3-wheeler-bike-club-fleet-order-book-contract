@@ -939,10 +939,27 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     }
 
 
+/// @notice Generate the fleet order IDs for a container
+/// @param container The container to generate the fleet order IDs for
+/// @return The fleet order IDs for the container
+function generateContainerFleetOrderIDs(uint256 container) internal view returns (uint256[] memory) {
+    uint256 fleetPerContainer = totalFleetPerContainer[container];
+    uint256 fleerPerLastContainer = totalFleetPerContainer[container - 1];
+    uint256 length = fleetPerContainer - fleerPerLastContainer;
+    uint256[] memory ids = new uint256[](length);
+    for (uint256 i = 0; i < length; i++) {
+        ids[i] = fleerPerLastContainer + i;
+    }
+    return ids;
+}
+
+
     /// @notice Set the status of multiple fleet orders
-    /// @param ids The ids of the fleet orders to set the status for
+    /// @param container The container to set the status for
     /// @param status The new status to set
-    function setBulkFleetOrderStatus(uint256[] memory ids, uint256 status) external onlyRole(SUPER_ADMIN_ROLE) {
+    function setBulkFleetOrderStatus(uint256 container, uint256 status) external onlyRole(SUPER_ADMIN_ROLE) {
+
+        uint256[] memory ids = generateContainerFleetOrderIDs(container);
         // Early checks (cheap)
         if (ids.length == 0) revert InvalidAmount();
         if (ids.length > MAX_BULK_UPDATE) revert BulkUpdateLimitExceeded();
