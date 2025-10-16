@@ -204,6 +204,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     error LockPeriodAlreadySet();
     error CannotChangeValueDuringOpenRound();
     error OperatorAlreadyAssigned();
+    error VehicleIdentificationNumberAlreadySet();
 
 
     constructor() AccessControl() {
@@ -284,7 +285,15 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         if (fleetLockPeriodPerOrder[id] != 0) revert LockPeriodAlreadySet();
         fleetLockPeriodPerOrder[id] = _fleetLockPeriod;
     }
-    
+
+
+
+    /// @notice Set the fleet vehicle identification number.
+    /// @param _fleetVehicleIdentificationNumber The vehicle identification number to set.
+    function setFleetVehicleIdentificationNumberPerOrder(string memory _fleetVehicleIdentificationNumber, uint256 id) internal {
+        if (bytes(fleetVehicleIdentificationNumberPerOrder[id]).length > 0) revert VehicleIdentificationNumberAlreadySet();
+        fleetVehicleIdentificationNumberPerOrder[id] = _fleetVehicleIdentificationNumber;
+    }
 
 
     /// @notice Set the maximum number of fleet orders.
