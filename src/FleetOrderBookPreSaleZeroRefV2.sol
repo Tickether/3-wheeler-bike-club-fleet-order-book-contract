@@ -75,6 +75,9 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     uint256 public fleetLiquidityProviderExpectedValue;
     /// @notice  Lock period for fleet in weeks.
     uint256 public fleetLockPeriod;
+    /// @notice  Off ramp service fee for fleet in percentage added to USD price. 
+    /// @dev 100 = 1% , 1000 = 10% , 10000 = 100%
+    uint256 public offRampServiceFee; 
 
 
     /// @notice State constants - each state is a power of 2 (bit position)
@@ -242,6 +245,16 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         fleetFractionPrice = _fleetFractionPrice;
         emit FleetFractionPriceChanged(oldPrice, _fleetFractionPrice);
     }
+
+
+    /// @notice Set the off ramp service fee.
+    /// @param _offRampServiceFee The off ramp service fee to set.
+    function setOffRampServiceFee(uint256 _offRampServiceFee) external onlyRole(SUPER_ADMIN_ROLE) {
+        if (_offRampServiceFee == 0) revert InvalidPrice();
+        if (totalFleetOrderPerContainer != 0) revert CannotChangeValueDuringOpenRound();
+        offRampServiceFee = _offRampServiceFee;
+    }
+
 
     /// @notice Set the fleet expected rate.
     /// @param _fleetProtocolExpectedValue The expected value to set.
