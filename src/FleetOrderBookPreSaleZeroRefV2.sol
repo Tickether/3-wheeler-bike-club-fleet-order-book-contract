@@ -797,6 +797,18 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     }
 
 
+    /// @notice Round up a token value (18 decimals) to the next 0.01 unit
+    /// @dev Example: 0.7614 → 0.77, 38.071 → 38.08
+    /// @param value The amount with 18 decimals
+    /// @return Rounded up amount (still 18 decimals)
+    function roundUpToTwoDecimals(uint256 value) internal pure returns (uint256) {
+        // One "cent" = 0.01 tokens = 1e16 in 18-decimal math
+        uint256 cent = 1e16;
+        if (value == 0) return 0;
+        return ((value + cent - 1) / cent) * cent;
+    }
+
+
     /// @notice Get the off ramp service fee in USD.
     /// @param fractions The number of fractions to order.
     /// @return The off ramp service fee in USD.
@@ -806,7 +818,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         uint256 percentage = 10000 - offRampServiceFee;
         uint256 price = fleetFractionPrice * fractions;
         uint256 fee = price * 10000 / percentage;
-        return fee - price;
+        return roundUpToTwoDecimals(fee - price);
     }
 
 
