@@ -117,6 +117,8 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     mapping(uint256 => uint256) private fleetLiquidityProviderExpectedValuePerOrder;
     /// @notice Mapping to store the lock period for each 3-wheeler fleet order
     mapping(uint256 => uint256) private fleetLockPeriodPerOrder;
+    /// @notice Mapping to store the vehicle identification number for each 3-wheeler fleet order
+    mapping(uint256 => string) private fleetVehicleIdentificationNumberPerOrder;
 
 
     /// @notice Mapping to store the IRL fulfillment state of each 3-wheeler fleet order
@@ -808,6 +810,13 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         if (id == 0) revert InvalidId();
         if (id > totalFleet) revert IdDoesNotExist();
         return fleetLockPeriodPerOrder[id];
+    }
+
+
+    function getFleetVehicleIdentificationNumberPerOrder(uint256 id) external view returns (string memory) {
+        if (id == 0) revert InvalidId();
+        if (id > totalFleet) revert IdDoesNotExist();
+        return fleetVehicleIdentificationNumberPerOrder[id];
     }
 
 
