@@ -781,7 +781,9 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         }
     }
 
-
+    /// @notice Assign a fleet operator to a fleet order.
+    /// @param id The id of the fleet order.
+    /// @param operator The address of the operator.
     function assignFleetOperator(uint256 id, address operator) external onlyRole(SUPER_ADMIN_ROLE) {
         if (id == 0) revert InvalidId();
         if (id > totalFleet) revert IdDoesNotExist();
@@ -793,6 +795,20 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
            setFleetOrderStatus(id, ASSIGNED);
         }
     }
+
+
+    /// @notice Get the off ramp service fee in USD.
+    /// @param fractions The number of fractions to order.
+    /// @return The off ramp service fee in USD.
+    function getOffRampServiceFeeUSD( uint256 fractions) external view returns (uint256) {
+        if (fractions < MIN_FLEET_FRACTION) revert InvalidFractionAmount();
+        if (fractions > MAX_FLEET_FRACTION) revert FractionExceedsMax();
+        uint256 percentage = 10000 - offRampServiceFee;
+        uint256 price = fleetFractionPrice * fractions;
+        uint256 fee = price * 10000 / percentage;
+        return fee - price;
+    }
+
 
 
     /// @notice Get the initial value of a fleet order.
