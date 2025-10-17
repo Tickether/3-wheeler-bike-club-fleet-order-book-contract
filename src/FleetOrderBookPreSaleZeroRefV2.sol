@@ -75,8 +75,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     uint256 public fleetLiquidityProviderExpectedValue;
     /// @notice  Lock period for fleet in weeks.
     uint256 public fleetLockPeriod;
-    /// @notice  Off ramp service fee for fleet in percentage added to USD price. 
-    /// @dev 100 = 1% , 1000 = 10% , 10000 = 100%
+    /// @notice  Off ramp service fee for fleet in percentage added to USD price. eg. 100 = 1% , 1000 = 10% , 10000 = 100%
     uint256 public offRampServiceFee; 
 
 
@@ -122,6 +121,8 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     mapping(uint256 => uint256) private fleetLockPeriodPerOrder;
     /// @notice Mapping to store the vehicle identification number for each 3-wheeler fleet order
     mapping(uint256 => string) private fleetVehicleIdentificationNumberPerOrder;
+    /// @notice Mapping to store the license plate number for each 3-wheeler fleet order
+    mapping(uint256 => string) private fleetLicensePlateNumberPerOrder;
 
 
     /// @notice Mapping to store the IRL fulfillment state of each 3-wheeler fleet order
@@ -136,6 +137,8 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     mapping(uint256 => uint256) private totalFractions;
     /// @notice Total fleet orders per container.
     mapping(uint256 => uint256) private totalFleetPerContainer;
+    /// @notice Mapping to store the tracking of each 3-wheeler fleet order per container
+    mapping(uint256 => uint256) private trackingPerContainer;
     /// @notice tracking fleet order index for each owner
     mapping(address => mapping(uint256 => uint256)) private fleetOwnedIndex;
     /// @notice tracking owners index for each fleet order
@@ -306,6 +309,14 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     function setFleetVehicleIdentificationNumberPerOrder(string memory _fleetVehicleIdentificationNumber, uint256 id) internal {
         if (bytes(fleetVehicleIdentificationNumberPerOrder[id]).length > 0) revert VehicleIdentificationNumberAlreadySet();
         fleetVehicleIdentificationNumberPerOrder[id] = _fleetVehicleIdentificationNumber;
+    }
+
+
+    /// @notice Set the fleet license plate number.
+    /// @param _fleetLicensePlateNumber The license plate number to set.
+    function setFleetLicensePlateNumberPerOrder(string memory _fleetLicensePlateNumber, uint256 id) internal {
+        if (bytes(fleetLicensePlateNumberPerOrder[id]).length > 0) revert LicensePlateNumberAlreadySet();
+        fleetLicensePlateNumberPerOrder[id] = _fleetLicensePlateNumber;
     }
 
 
@@ -781,21 +792,6 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         }
     }
 
-    /// @notice Assign a fleet operator to a fleet order.
-    /// @param id The id of the fleet order.
-    /// @param operator The address of the operator.
-    function assignFleetOperator(uint256 id, address operator) external onlyRole(SUPER_ADMIN_ROLE) {
-        if (id == 0) revert InvalidId();
-        if (id > totalFleet) revert IdDoesNotExist();
-        if (operator == address(0)) revert InvalidAddress();
-        if (isAddressFleetOperator(operator, id)) revert OperatorAlreadyAssigned();
-        addFleetOperator(operator, id);
-        addFleetOperated(operator, id);
-        if(fleetOrderStatus[id] == REGISTERED){
-           setFleetOrderStatus(id, ASSIGNED);
-        }
-    }
-
 
     /// @notice Round up a token value (18 decimals) to the next 0.01 unit
     /// @dev Example: 0.7614 → 0.77, 38.071 → 38.08
@@ -862,11 +858,23 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         return fleetLockPeriodPerOrder[id];
     }
 
-
+    /// @notice Get the vehicle identification number of a fleet order.
+    /// @param id The id of the fleet order.
+    /// @return The vehicle identification number of the fleet order.
     function getFleetVehicleIdentificationNumberPerOrder(uint256 id) external view returns (string memory) {
         if (id == 0) revert InvalidId();
         if (id > totalFleet) revert IdDoesNotExist();
         return fleetVehicleIdentificationNumberPerOrder[id];
+    }
+
+
+    /// @notice Get the license plate number of a fleet order.
+    /// @param id The id of the fleet order.
+    /// @return The license plate number of the fleet order.
+    function getFleetLicensePlateNumberPerOrder(uint256 id) external view returns (string memory) {
+        if (id == 0) revert InvalidId();
+        if (id > totalFleet) revert IdDoesNotExist();
+        return fleetLicensePlateNumberPerOrder[id];
     }
 
 
@@ -998,19 +1006,19 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     }
 
 
-/// @notice Generate the fleet order IDs for a container
-/// @param container The container to generate the fleet order IDs for
-/// @return The fleet order IDs for the container
-function generateContainerFleetOrderIDs(uint256 container) internal view returns (uint256[] memory) {
-    uint256 fleetPerContainer = totalFleetPerContainer[container];
-    uint256 fleerPerLastContainer = totalFleetPerContainer[container - 1];
-    uint256 length = fleetPerContainer - fleerPerLastContainer;
-    uint256[] memory ids = new uint256[](length);
-    for (uint256 i = 0; i < length; i++) {
-        ids[i] = fleerPerLastContainer + i;
+    /// @notice Generate the fleet order IDs for a container
+    /// @param container The container to generate the fleet order IDs for
+    /// @return The fleet order IDs for the container
+    function generateContainerFleetOrderIDs(uint256 container) internal view returns (uint256[] memory) {
+        uint256 fleetPerContainer = totalFleetPerContainer[container];
+        uint256 fleerPerLastContainer = totalFleetPerContainer[container - 1];
+        uint256 length = fleetPerContainer - fleerPerLastContainer;
+        uint256[] memory ids = new uint256[](length);
+        for (uint256 i = 0; i < length; i++) {
+            ids[i] = fleerPerLastContainer + i;
+        }
+        return ids;
     }
-    return ids;
-}
 
 
     /// @notice Set the status of multiple fleet orders
@@ -1031,6 +1039,22 @@ function generateContainerFleetOrderIDs(uint256 container) internal view returns
         // Now we can safely update all statuses
         for (uint256 i = 0; i < ids.length; i++) {
             setFleetOrderStatus(ids[i], status);
+        }
+    }
+
+
+    /// @notice Assign a fleet operator to a fleet order.
+    /// @param id The id of the fleet order.
+    /// @param operator The address of the operator.
+    function assignFleetOperator(uint256 id, address operator) external onlyRole(SUPER_ADMIN_ROLE) {
+        if (id == 0) revert InvalidId();
+        if (id > totalFleet) revert IdDoesNotExist();
+        if (operator == address(0)) revert InvalidAddress();
+        if (isAddressFleetOperator(operator, id)) revert OperatorAlreadyAssigned();
+        addFleetOperator(operator, id);
+        addFleetOperated(operator, id);
+        if(fleetOrderStatus[id] == REGISTERED){
+           setFleetOrderStatus(id, ASSIGNED);
         }
     }
 
