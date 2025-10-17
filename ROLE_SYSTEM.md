@@ -111,7 +111,6 @@ fleetOrderBook.setMaxFleetOrder(1000);
 
 ## Role Hierarchy
 
-```
 DEFAULT_ADMIN_ROLE (Highest)
 ├── SUPER_ADMIN_ROLE
 │   ├── Pause/Unpause
