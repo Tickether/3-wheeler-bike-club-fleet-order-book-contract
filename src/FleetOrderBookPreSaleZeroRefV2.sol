@@ -80,14 +80,13 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
 
 
     /// @notice State constants - each state is a power of 2 (bit position)
-    uint256 constant INIT = 1 << 0;         // 00000001
-    uint256 constant CREATED = 1 << 1;      // 00000010
-    uint256 constant SHIPPED = 1 << 2;      // 00000100
-    uint256 constant ARRIVED = 1 << 3;      // 00001000
-    uint256 constant CLEARED = 1 << 4;      // 00010000
-    uint256 constant REGISTERED = 1 << 5;   // 00100000
-    uint256 constant ASSIGNED = 1 << 6;     // 01000000
-    uint256 constant TRANSFERRED = 1 << 7;  // 10000000
+    uint256 constant INIT = 1 << 0;         // 0000001
+    uint256 constant SHIPPED = 1 << 1;      // 0000010
+    uint256 constant ARRIVED = 1 << 2;      // 0000100
+    uint256 constant CLEARED = 1 << 3;      // 0001000
+    uint256 constant REGISTERED = 1 << 4;   // 0010000
+    uint256 constant ASSIGNED = 1 << 5;     // 0100000
+    uint256 constant TRANSFERRED = 1 << 6;  // 1000000
 
 
     /// @notice Minimum number of fractions per fleet order.
@@ -138,7 +137,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @notice Total fleet orders per container.
     mapping(uint256 => uint256) private totalFleetPerContainer;
     /// @notice Mapping to store the tracking of each 3-wheeler fleet order per container
-    mapping(uint256 => uint256) private trackingPerContainer;
+    mapping(uint256 => string) private trackingPerContainer;
     /// @notice tracking fleet order index for each owner
     mapping(address => mapping(uint256 => uint256)) private fleetOwnedIndex;
     /// @notice tracking owners index for each fleet order
@@ -205,12 +204,8 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     error TokenNotAdded();
     error NotCompliant();
     error AlreadyCompliant();
-    error InitialValueAlreadySet();
-    error ExpectedValueAlreadySet();
-    error LockPeriodAlreadySet();
     error CannotChangeValueDuringOpenRound();
     error OperatorAlreadyAssigned();
-    error VehicleIdentificationNumberAlreadySet();
 
 
     constructor() AccessControl() {
@@ -274,7 +269,6 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @notice Set the fleet initial value.
     /// @param _fleetInitialValuePerOrder The value to set.
     function setFleetInitialValuePerOrder(uint256 _fleetInitialValuePerOrder, uint256 id) internal {
-        if (fleetInitialValuePerOrder[id] != 0) revert InitialValueAlreadySet();
         fleetInitialValuePerOrder[id] = _fleetInitialValuePerOrder;
     }
 
@@ -282,7 +276,6 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @notice Set the fleet expected rate.
     /// @param _fleetProtocolExpectedValuePerOrder The rate to set.
     function setFleetProtocolExpectedValuePerOrder(uint256 _fleetProtocolExpectedValuePerOrder, uint256 id) internal {
-        if (fleetProtocolExpectedValuePerOrder[id] != 0) revert ExpectedValueAlreadySet();
         fleetProtocolExpectedValuePerOrder[id] = _fleetProtocolExpectedValuePerOrder;
     }
 
@@ -290,7 +283,6 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @notice Set the fleet expected rate.
     /// @param _fleetLiquidityProviderExpectedValuePerOrder The rate to set.
     function setFleetLiquidityProviderExpectedValuePerOrder(uint256 _fleetLiquidityProviderExpectedValuePerOrder, uint256 id) internal {
-        if (fleetLiquidityProviderExpectedValuePerOrder[id] != 0) revert ExpectedValueAlreadySet();
         fleetLiquidityProviderExpectedValuePerOrder[id] = _fleetLiquidityProviderExpectedValuePerOrder;
     }
 
@@ -298,7 +290,6 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @notice Set the fleet lock period.
     /// @param _fleetLockPeriod The lock period to set.
     function setFleetLockPeriodPerOrder(uint256 _fleetLockPeriod, uint256 id) internal {
-        if (fleetLockPeriodPerOrder[id] != 0) revert LockPeriodAlreadySet();
         fleetLockPeriodPerOrder[id] = _fleetLockPeriod;
     }
 
@@ -307,7 +298,6 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @notice Set the fleet vehicle identification number.
     /// @param _fleetVehicleIdentificationNumber The vehicle identification number to set.
     function setFleetVehicleIdentificationNumberPerOrder(string memory _fleetVehicleIdentificationNumber, uint256 id) internal {
-        if (bytes(fleetVehicleIdentificationNumberPerOrder[id]).length > 0) revert VehicleIdentificationNumberAlreadySet();
         fleetVehicleIdentificationNumberPerOrder[id] = _fleetVehicleIdentificationNumber;
     }
 
@@ -315,8 +305,14 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @notice Set the fleet license plate number.
     /// @param _fleetLicensePlateNumber The license plate number to set.
     function setFleetLicensePlateNumberPerOrder(string memory _fleetLicensePlateNumber, uint256 id) internal {
-        if (bytes(fleetLicensePlateNumberPerOrder[id]).length > 0) revert LicensePlateNumberAlreadySet();
         fleetLicensePlateNumberPerOrder[id] = _fleetLicensePlateNumber;
+    }
+
+
+    /// @notice Set tracking per container.
+    /// @param _trackingPerContainer The tracking per container to set.
+    function setTrackingPerContainer(string memory _trackingPerContainer, uint256 id) internal {
+        trackingPerContainer[id] = _trackingPerContainer;
     }
 
 
@@ -351,16 +347,6 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         }
     }
 
-
-    /// @notice Start the next container.
-    function startNextContainer() external onlyRole(SUPER_ADMIN_ROLE) {
-        if (totalFleetOrderPerContainer < maxFleetOrderPerContainer) revert MaxFleetOrderPerContainerNotReached();
-        if (totalFractions[lastFleetFractionID] < MAX_FLEET_FRACTION) revert MaxFleetOrderPerContainerNotReached();
-        totalFleetContainerOrder++;
-        totalFleetPerContainer[totalFleetContainerOrder] = maxFleetOrderPerContainer;
-        totalFleetOrderPerContainer = 0;
-        _pause();
-    }
 
 
     /// @notice Add erc20contract to fleetERC20s.
@@ -712,6 +698,13 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @param amount The number of fleet orders to order.
     /// @param erc20Contract The address of the ERC20 contract.
     function orderFleet(uint256 amount, address erc20Contract, address receiver) external nonReentrant whenNotPaused {
+        // value validation
+        if (fleetFractionPrice == 0) revert InvalidAmount();
+        if (fleetProtocolExpectedValue == 0) revert InvalidAmount();
+        if (fleetLiquidityProviderExpectedValue == 0) revert InvalidAmount();
+        if (fleetLockPeriod == 0) revert InvalidAmount();
+        
+        // input validation
         if (fleetOwned[receiver].length + amount > MAX_FLEET_ORDER_PER_ADDRESS) revert MaxFleetOrderPerAddressExceeded();
         if (amount > MAX_ORDER_MULTIPLE_FLEET) revert MaxOrderMultipleFleetExceeded();
         if (amount < 1) revert InvalidAmount();
@@ -739,6 +732,12 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @param fractions The number of fractions to order.
     /// @param erc20Contract The address of the ERC20 contract.
     function orderFleetFraction(uint256 fractions, address erc20Contract, address receiver) external nonReentrant whenNotPaused {
+        // value validation
+        if (fleetFractionPrice == 0) revert InvalidAmount();
+        if (fleetProtocolExpectedValue == 0) revert InvalidAmount();
+        if (fleetLiquidityProviderExpectedValue == 0) revert InvalidAmount();
+        if (fleetLockPeriod == 0) revert InvalidAmount();
+        
         // Input validation
         if (!isTokenValid(erc20Contract)) revert TokenNotAccepted();
         if (erc20Contract == address(0)) revert InvalidAddress();
@@ -954,11 +953,10 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @param newStatus The new status to transition to
     /// @return bool True if the transition is valid
     function isValidTransition(uint256 currentStatus, uint256 newStatus, uint256 id) internal view returns (bool) {
-        if (currentStatus == INIT) return newStatus == CREATED;
-        if (currentStatus == CREATED) return newStatus == SHIPPED;
+        if (currentStatus == INIT) return false;
         if (currentStatus == SHIPPED) return newStatus == ARRIVED;
         if (currentStatus == ARRIVED) return newStatus == CLEARED;
-        if (currentStatus == CLEARED) return newStatus == REGISTERED;
+        if (currentStatus == CLEARED) return false;
         if (currentStatus == REGISTERED) return false;
         if (currentStatus == ASSIGNED && fleetOrderYieldContract.getFleetPaymentsDistributed(id) >= fleetLockPeriodPerOrder[id]) return newStatus == TRANSFERRED;
         return false;
@@ -1043,6 +1041,44 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     }
 
 
+    /// @notice Start the next container.
+    function startNextContainer() internal onlyRole(SUPER_ADMIN_ROLE) {
+        totalFleetContainerOrder++;
+        totalFleetPerContainer[totalFleetContainerOrder] = maxFleetOrderPerContainer;
+        totalFleetOrderPerContainer = 0;
+        _pause();
+    }
+
+
+    /// @notice Ship bulk fleet orders in a container with tracking.
+    /// @param vins The VINs to create the fleet orders for.
+    /// @param tracking The tracking to ship the fleet orders for.
+    function shipContainerWithTracking(string[] memory vins, string memory tracking) external onlyRole(SUPER_ADMIN_ROLE) {
+        if (totalFleetOrderPerContainer < maxFleetOrderPerContainer) revert MaxFleetOrderPerContainerNotReached();
+        if (totalFractions[lastFleetFractionID] < MAX_FLEET_FRACTION) revert MaxFleetOrderPerContainerNotReached();
+        startNextContainer();
+
+        uint256[] memory ids = generateContainerFleetOrderIDs(totalFleetContainerOrder);
+        if (vins.length != ids.length) revert InvalidAmount();
+        for (uint256 i = 0; i < ids.length; i++) {
+            setFleetVehicleIdentificationNumberPerOrder(vins[i], ids[i]);
+            setFleetOrderStatus(ids[i], SHIPPED);
+        }
+        setTrackingPerContainer(tracking, totalFleetContainerOrder);
+    }
+
+
+    /// @notice Register a fleet order with a license plate number.
+    /// @param id The id of the fleet order to register.
+    /// @param licensePlateNumber The license plate number to register the fleet order with.
+    function registerFleetOrderLicensePlateNumber(uint256 id, string memory licensePlateNumber) external onlyRole(SUPER_ADMIN_ROLE) {
+        if (id == 0) revert InvalidId();
+        if (id > totalFleet) revert IdDoesNotExist();
+        if (fleetOrderStatus[id] != CLEARED) revert InvalidStatus();
+        setFleetLicensePlateNumberPerOrder(licensePlateNumber, id);
+    }
+
+
     /// @notice Assign a fleet operator to a fleet order.
     /// @param id The id of the fleet order.
     /// @param operator The address of the operator.
@@ -1050,12 +1086,11 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         if (id == 0) revert InvalidId();
         if (id > totalFleet) revert IdDoesNotExist();
         if (operator == address(0)) revert InvalidAddress();
+        if (fleetOrderStatus[id] != REGISTERED) revert InvalidStatus();
         if (isAddressFleetOperator(operator, id)) revert OperatorAlreadyAssigned();
         addFleetOperator(operator, id);
         addFleetOperated(operator, id);
-        if(fleetOrderStatus[id] == REGISTERED){
-           setFleetOrderStatus(id, ASSIGNED);
-        }
+        setFleetOrderStatus(id, ASSIGNED);
     }
 
 
@@ -1068,7 +1103,6 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         uint256 status = fleetOrderStatus[id];
         
         if (status == INIT) return "Initialized";
-        if (status == CREATED) return "Created";
         if (status == SHIPPED) return "Shipped";
         if (status == ARRIVED) return "Arrived";
         if (status == CLEARED) return "Cleared";
