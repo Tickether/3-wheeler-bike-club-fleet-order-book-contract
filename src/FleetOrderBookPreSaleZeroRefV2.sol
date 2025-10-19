@@ -63,13 +63,13 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     uint256 public maxFleetOrderPerContainer;
     /// @notice Total number of fleet container orders.
     uint256 public totalFleetContainerOrder;
-    /// @notice  Price per fleet fraction in USD.
+    /// @notice  Price per fleet fraction in USD with 6 decimals.
     uint256 public fleetFractionPrice;
-    /// @notice  Fleet fraction price with off ramp service fee in USD.
+    /// @notice  Fleet fraction price with off ramp service fee in USD with 6 decimals.
     uint256 public fleetFractionPriceWithOffRampServiceFee; 
-    /// @notice  Protocol expected value for fleet in USD.
+    /// @notice  Protocol expected value for fleet in USD with 6 decimals.
     uint256 public fleetProtocolExpectedValue;
-    /// @notice  Liquidity provider expected value for fleet in USD.
+    /// @notice  Liquidity provider expected value for fleet in USD with 6 decimals.
     uint256 public fleetLiquidityProviderExpectedValue;
     /// @notice  Lock period for fleet in weeks.
     uint256 public fleetLockPeriod;
@@ -198,8 +198,8 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     }
 
 
-    /// @notice Set the fleet fraction price.
-    /// @param _fleetFractionPrice The price to set.
+    /// @notice Set the fleet fraction price in USD with 6 decimals.
+    /// @param _fleetFractionPrice The price to set in USD with 6 decimals.
     function setFleetFractionPrice(uint256 _fleetFractionPrice) external onlyRole(SUPER_ADMIN_ROLE) {
         if (_fleetFractionPrice == 0) revert InvalidPrice();
         if (totalFleetOrderPerContainer != 0) revert CannotChangeValueDuringOpenRound();
@@ -208,9 +208,9 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     }
 
 
-    /// @notice Set the fleet expected rate.
-    /// @param _fleetProtocolExpectedValue The expected value to set.
-    /// @param _fleetLiquidityProviderExpectedValue The expected value to set.
+    /// @notice Set the fleet expected rate in USD with 6 decimals.
+    /// @param _fleetProtocolExpectedValue The expected value to set in USD with 6 decimals.
+    /// @param _fleetLiquidityProviderExpectedValue The expected value to set in USD with 6 decimals.
     /// @param _fleetLockPeriod The lock period to set.
     function setFleetExpectedValuePlusLockPeriod(uint256 _fleetProtocolExpectedValue, uint256 _fleetLiquidityProviderExpectedValue, uint256 _fleetLockPeriod) external onlyRole(SUPER_ADMIN_ROLE) {
         if (totalFleetOrderPerContainer != 0) revert CannotChangeValueDuringOpenRound();
@@ -227,22 +227,22 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     }
 
 
-    /// @notice Set the fleet expected rate.
-    /// @param _fleetProtocolExpectedValuePerOrder The rate to set.
+    /// @notice Set the fleet expected rate in USD with 6 decimals.
+    /// @param _fleetProtocolExpectedValuePerOrder The rate to set in USD with 6 decimals.
     function setFleetProtocolExpectedValuePerOrder(uint256 _fleetProtocolExpectedValuePerOrder, uint256 id) internal {
         fleetProtocolExpectedValuePerOrder[id] = _fleetProtocolExpectedValuePerOrder;
     }
 
 
-    /// @notice Set the fleet expected rate.
-    /// @param _fleetLiquidityProviderExpectedValuePerOrder The rate to set.
+    /// @notice Set the fleet expected rate in USD with 6 decimals.
+    /// @param _fleetLiquidityProviderExpectedValuePerOrder The rate to set in USD with 6 decimals.
     function setFleetLiquidityProviderExpectedValuePerOrder(uint256 _fleetLiquidityProviderExpectedValuePerOrder, uint256 id) internal {
         fleetLiquidityProviderExpectedValuePerOrder[id] = _fleetLiquidityProviderExpectedValuePerOrder;
     }
 
 
     /// @notice Set the fleet lock period.
-    /// @param _fleetLockPeriod The lock period to set.
+    /// @param _fleetLockPeriod The lock period to set in weeks.
     function setFleetLockPeriodPerOrder(uint256 _fleetLockPeriod, uint256 id) internal {
         fleetLockPeriodPerOrder[id] = _fleetLockPeriod;
     }
@@ -305,7 +305,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         // Cache fleetFractionPrice in memory
         uint256 price = fleetFractionPriceWithOffRampServiceFee;
         
-        uint256 amount = price * fractions * (10 ** decimals);
+        uint256 amount = (price * fractions * (10 ** decimals)) / 1e6;
         if (tokenContract.balanceOf(msg.sender) < amount) revert NotEnoughTokens();
         tokenContract.safeTransferFrom(msg.sender, address(this), amount);
     }
