@@ -4,7 +4,6 @@ pragma solidity ^0.8.13;
 
 /// @dev Interface imports
 import { IERC6909TokenSupply } from "./interfaces/IERC6909TokenSupply.sol";
-import { IFleetOrderYield } from "./interfaces/IFleetOrderYield.sol";
 
 /// @dev Solmate imports
 import { ERC6909 } from "solmate/tokens/ERC6909.sol";
@@ -66,14 +65,14 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     uint256 public totalFleetContainerOrder;
     /// @notice  Price per fleet fraction in USD.
     uint256 public fleetFractionPrice;
+    /// @notice  Fleet fraction price with off ramp service fee in USD.
+    uint256 public fleetFractionPriceWithOffRampServiceFee; 
     /// @notice  Protocol expected value for fleet in USD.
     uint256 public fleetProtocolExpectedValue;
     /// @notice  Liquidity provider expected value for fleet in USD.
     uint256 public fleetLiquidityProviderExpectedValue;
     /// @notice  Lock period for fleet in weeks.
     uint256 public fleetLockPeriod;
-    /// @notice  Off ramp service fee for fleet in percentage added to USD price. eg. 100 = 1% , 1000 = 10% , 10000 = 100%
-    uint256 public offRampServiceFee; 
 
 
 
@@ -120,10 +119,6 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
 
     
 
-    /*...........................................................................*/
-    // pool tracking(tracking user total fleet orders in pre-sale) + compliance  
-    /*...........................................................................*/
-   
     /// @notice Whether a wallet is compliant.
     mapping(address => bool) public isCompliant;
     /// @notice Mapping of individual users to total pool shares (total fleet orders).
@@ -137,16 +132,8 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     event FleetFractionOrdered(uint256 indexed id, address indexed buyer, uint256 indexed fractions);
     /// @notice Event emitted when a fleet fraction overflow order is placed.
     event FleetFractionOverflowOrdered(uint256[] ids, address indexed buyer, uint256[] fractions);
-    /// @notice Event emitted when fleet sales are withdrawn.
-    event FleetSalesWithdrawn(address indexed token, address indexed to, uint256 amount);
-    /// @notice Event emitted when an ERC20 token is added to the fleet.
-    event ERC20Added(address indexed token);
-    /// @notice Event emitted when an ERC20 token is removed from the fleet.
-    event ERC20Removed(address indexed token);
-    /// @notice Event emitted when the fleet fraction price is changed.
-    event FleetFractionPriceChanged(uint256 oldPrice, uint256 newPrice);
-    /// @notice Event emitted when the maximum fleet orders in a container is changed.
-    event MaxFleetOrderPerContainerChanged(uint256 oldMax, uint256 newMax);
+
+
 
     /// @notice Error messages
     error InvalidId();
@@ -170,6 +157,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     error NotCompliant();
     error AlreadyCompliant();
     error CannotChangeValueDuringOpenRound();
+
 
 
     constructor() AccessControl() {
@@ -198,23 +186,25 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     }
 
 
+    /// @notice Round up a token value (18 decimals) to the next 0.01 unit
+    /// @dev Example: 0.7614 → 0.77, 38.071 → 38.08
+    /// @param value The amount with 18 decimals
+    /// @return Rounded up amount (still 18 decimals)
+    function roundCent(uint256 value) internal pure returns (uint256) {
+        // One "cent" = 0.01 tokens = 1e16 in 18-decimal math
+        uint256 cent = 1e16;
+        if (value == 0) return 0;
+        return ((value + cent - 1) / cent) * cent;
+    }
+
+
     /// @notice Set the fleet fraction price.
     /// @param _fleetFractionPrice The price to set.
     function setFleetFractionPrice(uint256 _fleetFractionPrice) external onlyRole(SUPER_ADMIN_ROLE) {
         if (_fleetFractionPrice == 0) revert InvalidPrice();
         if (totalFleetOrderPerContainer != 0) revert CannotChangeValueDuringOpenRound();
-        uint256 oldPrice = fleetFractionPrice;
         fleetFractionPrice = _fleetFractionPrice;
-        emit FleetFractionPriceChanged(oldPrice, _fleetFractionPrice);
-    }
-
-
-    /// @notice Set the off ramp service fee.
-    /// @param _offRampServiceFee The off ramp service fee to set.
-    function setOffRampServiceFee(uint256 _offRampServiceFee) external onlyRole(SUPER_ADMIN_ROLE) {
-        if (_offRampServiceFee == 0) revert InvalidPrice();
-        if (totalFleetOrderPerContainer != 0) revert CannotChangeValueDuringOpenRound();
-        offRampServiceFee = _offRampServiceFee;
+        fleetFractionPriceWithOffRampServiceFee = roundCent(_fleetFractionPrice * 10000 / 9850);
     }
 
 
@@ -264,9 +254,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         if (_maxFleetOrderPerContainer == 0) revert MaxFleetOrderPerContainerCannotBeZero();
         if (_maxFleetOrderPerContainer <= totalFleetOrderPerContainer) revert MaxFleetOrderPerContainerCannotBeLessThanTotal();
         if (totalFleetOrderPerContainer != 0) revert CannotChangeValueDuringOpenRound();
-        uint256 oldMax = maxFleetOrderPerContainer;
         maxFleetOrderPerContainer = _maxFleetOrderPerContainer;
-        emit MaxFleetOrderPerContainerChanged(oldMax, _maxFleetOrderPerContainer);
     }
 
 
@@ -284,7 +272,6 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     }
 
 
-
     /// @notice Add erc20contract to fleetERC20s.
     /// @param erc20Contract The address of the ERC20 contract.
     function addERC20(address erc20Contract) 
@@ -295,7 +282,6 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         if (fleetERC20[erc20Contract]) revert TokenAlreadyAdded();
 
         fleetERC20[erc20Contract] = true;
-        emit ERC20Added(erc20Contract);
     }
 
     
@@ -306,7 +292,6 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         if (!fleetERC20[erc20Contract]) revert TokenNotAdded();
         
         fleetERC20[erc20Contract] = false;
-        emit ERC20Removed(erc20Contract);
     }
     
 
@@ -318,7 +303,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         uint256 decimals = IERC20Metadata(erc20Contract).decimals();
         
         // Cache fleetFractionPrice in memory
-        uint256 price = fleetFractionPrice;
+        uint256 price = fleetFractionPriceWithOffRampServiceFee;
         
         uint256 amount = price * fractions * (10 ** decimals);
         if (tokenContract.balanceOf(msg.sender) < amount) revert NotEnoughTokens();
@@ -683,31 +668,6 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     }
 
 
-    /// @notice Round up a token value (18 decimals) to the next 0.01 unit
-    /// @dev Example: 0.7614 → 0.77, 38.071 → 38.08
-    /// @param value The amount with 18 decimals
-    /// @return Rounded up amount (still 18 decimals)
-    function roundUpToTwoDecimals(uint256 value) internal pure returns (uint256) {
-        // One "cent" = 0.01 tokens = 1e16 in 18-decimal math
-        uint256 cent = 1e16;
-        if (value == 0) return 0;
-        return ((value + cent - 1) / cent) * cent;
-    }
-
-
-    /// @notice Get the off ramp service fee in USD.
-    /// @param fractions The number of fractions to order.
-    /// @return The off ramp service fee in USD.
-    function getOffRampServiceFeeUSD( uint256 fractions) external view returns (uint256) {
-        if (fractions < MIN_FLEET_FRACTION) revert InvalidFractionAmount();
-        if (fractions > MAX_FLEET_FRACTION) revert FractionExceedsMax();
-        uint256 percentage = 10000 - offRampServiceFee;
-        uint256 price = fleetFractionPrice * fractions;
-        uint256 fee = price * 10000 / percentage;
-        return roundUpToTwoDecimals(fee - price);
-    }
-
-
     /// @notice Get the initial value of a fleet order.
     /// @param id The id of the fleet order.
     /// @return The initial value of the fleet order.
@@ -880,7 +840,6 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         uint256 amount = tokenContract.balanceOf(address(this));
         if (amount == 0) revert NotEnoughTokens();
         tokenContract.safeTransfer(to, amount);
-        emit FleetSalesWithdrawn(token, to, amount);
     }
 
 
