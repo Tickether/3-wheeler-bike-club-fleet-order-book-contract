@@ -119,8 +119,8 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
 
     
 
-    /// @notice Whether a wallet is compliant.
-    mapping(address => bool) public isCompliant;
+    /// @notice Whether a liquidity provider wallet is compliant.
+    mapping(address => bool) public isLiquidityProviderCompliant;
     /// @notice Mapping of individual users to total pool shares (total fleet orders).
     mapping(address => uint256) public poolShares;
     
@@ -189,10 +189,10 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     /// @notice Round up a token value (18 decimals) to the next 0.01 unit
     /// @dev Example: 0.7614 → 0.77, 38.071 → 38.08
     /// @param value The amount with 18 decimals
-    /// @return Rounded up amount (still 18 decimals)
+    /// @return Rounded up amount (still 6 decimals)
     function roundCent(uint256 value) internal pure returns (uint256) {
-        // One "cent" = 0.01 tokens = 1e16 in 18-decimal math
-        uint256 cent = 1e16;
+        // One "cent" = 0.01 tokens = 1e4 in 6-decimal math
+        uint256 cent = 1e4;
         if (value == 0) return 0;
         return ((value + cent - 1) / cent) * cent;
     }
@@ -263,11 +263,11 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
     function setCompliance(address[] calldata owners) external onlyRole(COMPLIANCE_ROLE) {
         if (owners.length == 0) revert InvalidAmount();
         for (uint256 i = 0; i < owners.length; i++) {
-                if (isCompliant[owners[i]]) revert AlreadyCompliant();
+                if (isLiquidityProviderCompliant[owners[i]]) revert AlreadyCompliant();
             }
 
         for (uint256 i = 0; i < owners.length; i++) {
-            isCompliant[owners[i]] = true;
+            isLiquidityProviderCompliant[owners[i]] = true;
         }
     }
 
@@ -588,7 +588,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         if (erc20Contract == address(0)) revert InvalidAddress();
         if (totalFleetOrderPerContainer + amount > maxFleetOrderPerContainer) revert MaxFleetOrderPerContainerExceeded();
 
-        if (!isCompliant[receiver]) revert NotCompliant();
+        if (!isLiquidityProviderCompliant[receiver]) revert NotCompliant();
         
         uint256[] memory ids = new uint256[](amount);
 
@@ -620,7 +620,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
         if (fractions < MIN_FLEET_FRACTION) revert InvalidFractionAmount();
         if (fractions >= MAX_FLEET_FRACTION) revert FractionExceedsMax();
 
-        if (!isCompliant[receiver]) revert NotCompliant();
+        if (!isLiquidityProviderCompliant[receiver]) revert NotCompliant();
 
         // if first mint ie no last fleetFraction ID we create one
         if (lastFleetFractionID < 1) {
