@@ -260,7 +260,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
 
     /// @notice Set the compliance.
     /// @param owners The addresses to set as compliant.
-    function setCompliance(address[] calldata owners) external onlyRole(COMPLIANCE_ROLE) {
+    function setLiquidityProviderCompliance(address[] calldata owners) external onlyRole(COMPLIANCE_ROLE) {
         if (owners.length == 0) revert InvalidAmount();
         for (uint256 i = 0; i < owners.length; i++) {
                 if (isLiquidityProviderCompliant[owners[i]]) revert AlreadyCompliant();
