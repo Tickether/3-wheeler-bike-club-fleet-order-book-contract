@@ -123,7 +123,6 @@ contract FleetOrderBook is IERC6909TokenSupply, ERC6909, Ownable, Pausable, Reen
     error FractionExceedsMax();
     error NotEnoughTokens();
     error InvalidAmount();
-    error NoNativeTokenAccepted();
     error InvalidPrice();
     error MaxFleetOrderNotIncreased();
     error TokenAlreadyAdded();
@@ -716,10 +715,4 @@ contract FleetOrderBook is IERC6909TokenSupply, ERC6909, Ownable, Pausable, Reen
         tokenContract.safeTransfer(to, amount);
         emit FleetSalesWithdrawn(token, to, amount);
     }
-
-
-    receive() external payable { revert NoNativeTokenAccepted(); }
-    fallback() external payable { revert NoNativeTokenAccepted(); }
-
-
 }
