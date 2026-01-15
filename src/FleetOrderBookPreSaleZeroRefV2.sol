@@ -472,7 +472,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
 
         
         // set initial value
-        setFleetInitialValuePerOrder(fractions * fleetFractionPrice, totalFleet);
+        setFleetInitialValuePerOrder(MAX_FLEET_FRACTION * fleetFractionPrice, totalFleet);
         // set protocol expected rate
         setFleetProtocolExpectedValuePerOrder(fleetProtocolExpectedValue, totalFleet);
         // set liquidity provider expected rate
@@ -548,7 +548,7 @@ contract FleetOrderBookPreSale is IERC6909TokenSupply, ERC6909, AccessControl, P
 
         
         // set initial value
-        setFleetInitialValuePerOrder(fractions * fleetFractionPrice, totalFleet);
+        setFleetInitialValuePerOrder(MAX_FLEET_FRACTION * fleetFractionPrice, totalFleet);
         // set protocol expected rate
         setFleetProtocolExpectedValuePerOrder(fleetProtocolExpectedValue, totalFleet);
         // set liquidity provider expected rate
